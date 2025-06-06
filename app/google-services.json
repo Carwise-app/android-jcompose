@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "385612512674",
+    "project_id": "carwise-1c77e",
+    "storage_bucket": "carwise-1c77e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:385612512674:android:96621ded6f212c2153c6fb",
+        "android_client_info": {
+          "package_name": "com.carwise.android"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPp1_DVCNMepphhP4o8DQc60xXsBekEZo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
