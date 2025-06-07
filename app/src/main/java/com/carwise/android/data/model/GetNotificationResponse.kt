@@ -15,7 +15,7 @@ data class Notification(
     val title: String,
     val message: String,
     val status: Long,
-    val data: Data,
+    val data: Data?,
     val read: Boolean,
     @SerializedName("created_by")
     val createdBy: String,

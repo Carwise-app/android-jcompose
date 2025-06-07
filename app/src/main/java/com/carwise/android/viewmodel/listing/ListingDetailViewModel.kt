@@ -6,20 +6,27 @@ import com.carwise.android.data.model.GetListingResponse
 import com.carwise.android.data.model.ResultState
 import com.carwise.android.data.model.UpdateListingStatusRequest
 import com.carwise.android.data.model.UserPayload
+import com.carwise.android.data.model.PricePredictionRequest
+import com.carwise.android.data.model.PricePredictionResponse
 import com.carwise.android.model.repository.CarwiseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ListingDetailState(
-    val isLoading: Boolean = false,
     val listing: GetListingResponse? = null,
-    val error: String? = null,
-    val isFavoriteLoading: Boolean = false,
     val currentUser: UserPayload? = null,
-    val isActionLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val isActionLoading: Boolean = false,
+    val isFavoriteLoading: Boolean = false,
+    val error: String? = null,
+    // Prediction state
+    val isPredicting: Boolean = false,
+    val prediction: PricePredictionResponse? = null,
+    val predictionError: String? = null
 )
 
 @HiltViewModel
@@ -181,5 +188,81 @@ class ListingDetailViewModel @Inject constructor(
 
     fun clearError() {
         _state.value = _state.value.copy(error = null)
+    }
+
+    fun predictPrice() {
+        viewModelScope.launch {
+            val listing = state.value.listing ?: return@launch
+            val detail = listing.detail
+
+            // Reset prediction state
+            _state.value = _state.value.copy(
+                isPredicting = true,
+                prediction = null,
+                predictionError = null
+            )
+
+            val parts = listOf(
+                detail.frontBumper, detail.frontHood, detail.roof,
+                detail.frontRightDoor, detail.rearRightDoor,
+                detail.frontLeftMudguard, detail.frontLeftDoor,
+                detail.rearLeftDoor, detail.rearLeftMudguard,
+                detail.rearBumper
+            )
+
+            val boyalSayisi = parts.count { it.lowercase() in listOf("boyalı", "lokal", "lokal boya") }
+            val degisenSayisi = parts.count { it.lowercase() == "değişmiş" }
+            val orjinalSayisi = parts.count { it.lowercase() in listOf("orijinal", "yok") }
+
+            val request = PricePredictionRequest(
+                marka = listing.brand.name,
+                seri = listing.series.name,
+                model = listing.model.name,
+                yl = detail.year.toLong(),
+                kilometre = detail.kilometers.toDouble(),
+                motorHacmi = detail.engineVolume.toDouble(),
+                motorGucu = detail.enginePower.toDouble(),
+                tramer = if (detail.heavyDamage) 1.0 else 0.0,
+                boyalSayisi = boyalSayisi.toLong(),
+                degisenSayisi = degisenSayisi.toLong(),
+                orjinalSayisi = orjinalSayisi.toLong(),
+                vitesTipi = if (detail.transmissionType == "Manuel") "Düz" else detail.transmissionType,
+                yakitTipi = detail.fuelType,
+                kasaTipi = detail.bodyType,
+                renk = detail.color
+            )
+
+            delay(2000)
+            
+            val result = repository.pricePredict(request)
+            when (result) {
+                    is ResultState.Success -> {
+                        _state.value = _state.value.copy(
+                            isPredicting = false,
+                            prediction = result.data,
+                            predictionError = null
+                        )
+                    }
+                    is ResultState.Error -> {
+                        _state.value = _state.value.copy(
+                            isPredicting = false,
+                            prediction = null,
+                            predictionError = result.error.error
+                        )
+                    }
+                    is ResultState.Loading -> {
+                        _state.value = _state.value.copy(isPredicting = true)
+                    }
+            }
+
+        }
+    }
+
+    fun resetPrediction() {
+        _state.value = _state.value.copy(
+            isPredicting = false,
+            prediction = null,
+            predictionError = null
+        )
     }
 } 

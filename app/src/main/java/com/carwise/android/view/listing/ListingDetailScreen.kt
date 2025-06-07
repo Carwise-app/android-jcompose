@@ -113,6 +113,14 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.viewinterop.AndroidView
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.carwise.android.data.model.PricePredictionResponse
+import com.carwise.android.data.model.ResultState
+import com.carwise.android.viewmodel.listing.ListingDetailState
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -126,10 +134,12 @@ fun ListingDetailScreen(
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showPredictionDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(listingId) {
         listingId?.let { viewModel.loadListingDetail(it) }
     }
+
 
     // Only navigate up if a listing was loaded before and now is deleted
     var wasListingNotNull by remember { mutableStateOf(false) }
@@ -168,6 +178,19 @@ fun ListingDetailScreen(
                 ),
                 actions = {
                     if (state.listing != null) {
+                        // AI star iconbutton
+                        IconButton(onClick = {
+                            showPredictionDialog = true
+                            viewModel.predictPrice()
+                        }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ai_star),
+                                contentDescription = "AI Star",
+                                tint = appRed,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
                         // Favorite Button
                         IconButton(
                             onClick = { viewModel.toggleFavorite() },
@@ -397,6 +420,16 @@ fun ListingDetailScreen(
                 containerColor = Color.White,
                 titleContentColor = appRed,
                 textContentColor = Color.Gray
+            )
+        }
+
+        if (showPredictionDialog) {
+            AIPredictionDialog(
+                onDismiss = { 
+                    showPredictionDialog = false
+                    viewModel.resetPrediction()
+                },
+                state = state
             )
         }
     }
@@ -1452,5 +1485,145 @@ private fun LegendDotDot(color: Color, label: String) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+private fun AIPredictionDialog(
+    onDismiss: () -> Unit,
+    state: ListingDetailState
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (state.predictionError != null) {
+                    // Error state
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = Color.Red
+                    )
+                    Text(
+                        text = "Tahmin Yapılamadı",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = state.predictionError,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                } else if (state.prediction != null) {
+                    // Prediction Results
+                    Icon(
+                        painter = painterResource(R.drawable.ai_star),
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = appRed
+                    )
+                    
+                    Text(
+                        text = "AI Fiyat Tahmini",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+
+                    // Predicted Price with MAE
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "Tahmini Fiyat",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "${NumberFormat.getNumberInstance(Locale("tr", "TR")).format(state.prediction.tahminiFiyat.toLong())} TL",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = appRed
+                        )
+                        Text(
+                            text = "±${NumberFormat.getNumberInstance(Locale("tr", "TR")).format(state.prediction.mae.toLong())} TL",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
+                    // Disclaimer
+                    Text(
+                        text = "Bu tahmin AI modeli tarafından yapılmıştır ve kesin bir değer değildir. Fiyat belirlemede sadece referans olarak kullanılmalıdır.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                else {
+                    Box(
+                        modifier = Modifier
+                            .size(200.dp)
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val composition by rememberLottieComposition(
+                            LottieCompositionSpec.RawRes(R.raw.spark)
+                        )
+                        val progress by animateLottieCompositionAsState(
+                            composition = composition,
+                            iterations = LottieConstants.IterateForever
+                        )
+
+                        LottieAnimation(
+                            composition = composition,
+                            progress = { progress },
+                            modifier = Modifier.size(120.dp)
+                        )
+                    }
+                    Text(
+                        text = "AI Tahmin Yapılıyor...",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.Black
+                    )
+                }
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = appRed)
+                ) {
+                    Text(
+                        text = if (state.isPredicting) "İptal" else "Kapat",
+                        color = Color.White
+                    )
+                }
+            }
+        }
     }
 } 

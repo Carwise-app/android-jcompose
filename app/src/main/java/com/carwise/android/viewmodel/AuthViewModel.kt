@@ -67,8 +67,8 @@ class AuthViewModel @Inject constructor(
             try {
                 val result = repository.register(
                     request = RegisterRequest(
-                        firstName = firstName.lowercase().capitalize().trimStart().trimEnd(),
-                        lastName = lastName.lowercase().capitalize().trimStart().trimEnd(),
+                        firstName = firstName.trimStart().trimEnd(),
+                        lastName = lastName.trimStart().trimEnd(),
                         countryCode = countryCode,
                         phoneNumber = phoneNumber.trim().replace(" ",""),
                         email = email.lowercase().trimStart().trimEnd(),

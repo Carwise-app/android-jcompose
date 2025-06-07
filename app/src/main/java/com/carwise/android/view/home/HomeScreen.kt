@@ -921,13 +921,13 @@ fun HomeScreen(
                                             onRead = { homeViewModel.markNotificationAsRead(notification.id) },
                                             onDelete = { homeViewModel.deleteNotification(notification.id) },
                                             onNavigateToListing = {
-                                                notification.data.listing_id?.let{
+                                                notification.data?.listing_id?.let{
                                                     navController.navigate(Screen.ListingDetail.createRoute(it))
 
                                                 }
                                             },
                                             onNavigateToChat = {
-                                                notification.data.user_id?.let{
+                                                notification.data?.user_id?.let{
                                                     navController.navigate(Screen.Messages.createRoute(notification.data.listing_id ?: "", it))
                                                 }
                                             }
@@ -1312,7 +1312,7 @@ fun NotificationDetailDialog(
                 )
 
                 // Image gösterimi
-                notification.data.image?.let { imageUrl ->
+                notification.data?.image?.let { imageUrl ->
                     if (imageUrl.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -1338,7 +1338,7 @@ fun NotificationDetailDialog(
                 }
 
                if (notification.status == 2L) {
-                   notification.data.listing_id?.let { listingId ->
+                   notification.data?.listing_id?.let { listingId ->
                        if (listingId.isNotEmpty()) {
                            Spacer(modifier = Modifier.height(16.dp))
 
@@ -1374,7 +1374,7 @@ fun NotificationDetailDialog(
                                        Spacer(modifier = Modifier.width(12.dp))
 
                                        Column {
-                                           notification.data.user_name?.let {
+                                           notification.data?.user_name?.let {
                                                Text(
                                                    text = it,
                                                    style = MaterialTheme.typography.titleSmall,
@@ -1401,7 +1401,7 @@ fun NotificationDetailDialog(
                        }
                    }
                } else {
-                   notification.data.listing_id?.let { listingId ->
+                   notification.data?.listing_id?.let { listingId ->
                        if (listingId.isNotEmpty()) {
                            Spacer(modifier = Modifier.height(16.dp))
 
