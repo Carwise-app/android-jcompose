@@ -304,6 +304,7 @@ fun MessagesScreen(
                         shape = RoundedCornerShape(24.dp),
                         singleLine = true
                     )
+                    val buttonColor = if (messageText.isNotBlank()) appRed else appRed.copy(.4f)
                     IconButton(
                         onClick = {
                             if (messageText.isNotBlank()) {
@@ -322,7 +323,8 @@ fun MessagesScreen(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(appRed)
+                            .background(buttonColor),
+                        enabled = messageText.isNotBlank()
                     ) {
                         Icon(
                             imageVector = Icons.Default.Send,

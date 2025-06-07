@@ -52,6 +52,18 @@
                     android:host="carwisegw.yusuftalhaklc.com"
                     android:pathPrefix="/auth/reset-password" />
             </intent-filter>
+
+            <!-- Listing Deep Link -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="carwisegw.yusuftalhaklc.com"
+                    android:pathPrefix="/listing" />
+            </intent-filter>
+
         </activity>
 
     </application>

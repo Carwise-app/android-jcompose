@@ -308,8 +308,8 @@ fun CreateListingScreen(
                                     val price = state.selectedPrice
                                     price != null && price > 0 && state.title.isNotEmpty()
                                 }
-                                9 -> state.description.isNotEmpty()
-                                10 -> true // Photo step is optional
+                                9 -> true
+                                10 -> true
                                 else -> true
                             }
 
