@@ -15,7 +15,6 @@ import com.carwise.android.view.auth.ResetPasswordScreen
 import com.carwise.android.view.home.HomeScreen
 import com.carwise.android.view.listing.ListingDetailScreen
 import com.carwise.android.view.create_listing.CreateListingScreen
-import com.carwise.android.view.listing.ListingListScreen
 import com.carwise.android.view.listing.MyListingsScreen
 import com.carwise.android.view.profile.ProfileScreen
 import com.carwise.android.view.settings.SettingsScreen
@@ -106,11 +105,16 @@ fun CarwiseNavigation (
                 navArgument("listingId") {
                     type = NavType.StringType
                 }
+            ),
+            deepLinks = listOf(
+                navDeepLink {
+                    uriPattern = "https://carwisegw.yusuftalhaklc.com/listing/{listingId}"
+                },
             )
         ) { backStackEntry ->
             val listingId = backStackEntry.arguments?.getString("listingId")
             ListingDetailScreen(navController, listingId)
-        }   
+        }
         composable(Screen.CreateListing.route) {
             CreateListingScreen(navController)
         }
@@ -127,9 +131,6 @@ fun CarwiseNavigation (
             if (listingId != null) {
                 UpdateListingScreen(navController = navController, listingId = listingId)
             }
-        }
-        composable(Screen.ListingList.route) {
-            ListingListScreen(navController)
         }
         composable(Screen.Profile.route) {
             ProfileScreen(navController)

@@ -55,6 +55,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 
 // Sabit listeler
 private val bodyTypes = listOf(
@@ -125,6 +127,107 @@ fun ListingsScreen(
     val districts by viewModel.districts.collectAsState()
     val neighborhoods by viewModel.neighborhoods.collectAsState()
 
+    // Filtre sayacı hesaplama
+    val activeFilterCount = remember(state.filters) {
+        var count = 0
+        val activeFilters = mutableListOf<String>()
+        
+        with(state.filters) {
+            // Marka, seri, model filtreleri
+            if (brandId.isNotEmpty()) {
+                count++
+                activeFilters.add("Brand: $brandId")
+            }
+            if (seriesId.isNotEmpty()) {
+                count++
+                activeFilters.add("Series: $seriesId")
+            }
+            if (modelId.isNotEmpty()) {
+                count++
+                activeFilters.add("Model: $modelId")
+            }
+            
+            // Araç özellikleri filtreleri
+            if (bodyType.isNotEmpty()) {
+                count++
+                activeFilters.add("BodyType: $bodyType")
+            }
+            if (driveType.isNotEmpty()) {
+                count++
+                activeFilters.add("DriveType: $driveType")
+            }
+            if (transmissionType.isNotEmpty()) {
+                count++
+                activeFilters.add("Transmission: $transmissionType")
+            }
+            if (fuelType.isNotEmpty()) {
+                count++
+                activeFilters.add("Fuel: $fuelType")
+            }
+            if (color.isNotEmpty()) {
+                count++
+                activeFilters.add("Color: $color")
+            }
+            
+            // Konum filtreleri
+            if (city.isNotEmpty()) {
+                count++
+                activeFilters.add("City: $city")
+            }
+            if (district.isNotEmpty()) {
+                count++
+                activeFilters.add("District: $district")
+            }
+            if (neighborhood.isNotEmpty()) {
+                count++
+                activeFilters.add("Neighborhood: $neighborhood")
+            }
+            
+            // Aralık filtreleri - sadece anlamlı değerleri say
+            // Fiyat aralığı: min > 0 veya max < Int.MAX_VALUE
+            if (priceRange.first > 0 || (priceRange.second > 0 && priceRange.second < Int.MAX_VALUE)) {
+                count++
+                activeFilters.add("Price: ${priceRange.first}-${priceRange.second}")
+            }
+            
+            // Yıl aralığı: min > 0 veya max < 2024
+            if (yearRange.first > 0 || (yearRange.second > 0 && yearRange.second < 2024)) {
+                count++
+                activeFilters.add("Year: ${yearRange.first}-${yearRange.second}")
+            }
+            
+            // Kilometre aralığı: min > 0 veya max < Int.MAX_VALUE
+            if (kilometersRange.first > 0 || (kilometersRange.second > 0 && kilometersRange.second < Int.MAX_VALUE)) {
+                count++
+                activeFilters.add("KM: ${kilometersRange.first}-${kilometersRange.second}")
+            }
+            
+            // Motor gücü aralığı: min > 0 veya max < Int.MAX_VALUE
+            if (enginePowerRange.first > 0 || (enginePowerRange.second > 0 && enginePowerRange.second < Int.MAX_VALUE)) {
+                count++
+                activeFilters.add("Power: ${enginePowerRange.first}-${enginePowerRange.second}")
+            }
+            
+            // Motor hacmi aralığı: min > 0 veya max < Int.MAX_VALUE
+            if (engineVolumeRange.first > 0 || (engineVolumeRange.second > 0 && engineVolumeRange.second < Int.MAX_VALUE)) {
+                count++
+                activeFilters.add("Volume: ${engineVolumeRange.first}-${engineVolumeRange.second}")
+            }
+            
+            // Hasar durumu
+            if (heavyDamage != null) {
+                count++
+                activeFilters.add("HeavyDamage: $heavyDamage")
+            }
+        }
+
+        // Aktif filtreleri logla
+        Log.d("FilterCount", "Active Filters (${activeFilters.size}): ${activeFilters.joinToString(", ")}")
+        Log.d("FilterCount", "Raw Filter Values: ${state.filters}")
+        
+        count
+    }
+
     // Pagination scroll trigger
     LaunchedEffect(listState, state.isLoading, state.isPaginating, state.endReached) {
         snapshotFlow {
@@ -193,28 +296,6 @@ fun ListingsScreen(
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        val filters = state.filters
-                        val activeFilterCount = remember(filters) {
-                            var count = 0
-                            if (filters.brandId.isNotEmpty()) count++
-                            if (filters.seriesId.isNotEmpty()) count++
-                            if (filters.modelId.isNotEmpty()) count++
-                            if (filters.bodyType.isNotEmpty()) count++
-                            if (filters.driveType.isNotEmpty()) count++
-                            if (filters.transmissionType.isNotEmpty()) count++
-                            if (filters.fuelType.isNotEmpty()) count++
-                            if (filters.color.isNotEmpty()) count++
-                            if (filters.heavyDamage != null) count++
-                            if (filters.city.isNotEmpty()) count++
-                            if (filters.district.isNotEmpty()) count++
-                            if (filters.neighborhood.isNotEmpty()) count++
-                            if (filters.priceRange.first > 0 || (filters.priceRange.second > 0 && filters.priceRange.second < Int.MAX_VALUE)) count++
-                            if (filters.yearRange.first > 0 || (filters.yearRange.second > 0 && filters.yearRange.second < 2024)) count++
-                            if (filters.kilometersRange.first > 0 || (filters.kilometersRange.second > 0 && filters.kilometersRange.second < Int.MAX_VALUE)) count++
-                            if (filters.enginePowerRange.first > 0 || (filters.enginePowerRange.second > 0 && filters.enginePowerRange.second < Int.MAX_VALUE)) count++
-                            if (filters.engineVolumeRange.first > 0 || (filters.engineVolumeRange.second > 0 && filters.engineVolumeRange.second < Int.MAX_VALUE)) count++
-                            count
-                        }
                         if (activeFilterCount > 0) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Badge(
@@ -357,7 +438,15 @@ fun ListingsScreen(
                     neighborhoods = neighborhoods,
                     onCitySelected = viewModel::onCitySelected,
                     onDistrictSelected = viewModel::onDistrictSelected,
-                    onNeighborhoodSelected = viewModel::onNeighborhoodSelected
+                    onNeighborhoodSelected = viewModel::onNeighborhoodSelected,
+                    brands = state.brands,
+                    onBrandSelected = viewModel::selectBrand,
+                    selectedBrand = state.selectedBrand,
+                    selectedSeries = state.selectedSeries,
+                    selectedModel = state.selectedModel,
+                    onSeriesSelected = viewModel::selectSeries,
+                    onModelSelected = viewModel::selectModel,
+                    onClearAllFilters = viewModel::clearAllFilters
                 )
             }
         }
@@ -376,7 +465,15 @@ fun FilterScreen(
     neighborhoods: List<String>,
     onCitySelected: (String) -> Unit,
     onDistrictSelected: (District) -> Unit,
-    onNeighborhoodSelected: (String) -> Unit
+    onNeighborhoodSelected: (String) -> Unit,
+    brands: List<Brand>,
+    onBrandSelected: (Brand) -> Unit,
+    selectedBrand: Brand?,
+    selectedSeries: GetBrandSeries?,
+    selectedModel: GetBrandSeriesModels?,
+    onSeriesSelected: (GetBrandSeries) -> Unit,
+    onModelSelected: (GetBrandSeriesModels) -> Unit,
+    onClearAllFilters: () -> Unit
 ) {
     var showPriceDialog by remember { mutableStateOf(false) }
     var showYearDialog by remember { mutableStateOf(false) }
@@ -442,31 +539,11 @@ fun FilterScreen(
                         )
                     }
 
-
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Surface(
-                            onClick = {
-                                // Filtreleri temizle
-                                onFiltersChange(
-                                    filters.copy(
-                                        priceRange = Pair(0, 0),
-                                        yearRange = Pair(0, 0),
-                                        fuelType = "",
-                                        transmissionType = "",
-                                        bodyType = "",
-                                        color = "",
-                                        kilometersRange = Pair(0, 0),
-                                        enginePowerRange = Pair(0, 1000),
-                                        engineVolumeRange = Pair(0, 10000),
-                                        driveType = "",
-                                        city = "",
-                                        district = "",
-                                        neighborhood = ""
-                                    )
-                                )
-                            },
+                            onClick = onClearAllFilters,
                             shape = RoundedCornerShape(12.dp),
                             color = Color(0xFFFF4444).copy(alpha = 0.1f),
                             modifier = Modifier.height(40.dp)
@@ -516,6 +593,130 @@ fun FilterScreen(
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Location Section
+                item {
+                    Text(
+                        "Marka Bilgileri",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF333333)
+                        ),
+                        modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+                    )
+                }
+
+                item {
+                    EnhancedFilterCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            // Brand Selection
+                            EnhancedBrandDropdown(
+                                label = "Marka",
+                                value = selectedBrand?.name ?: "",
+                                placeholder = "Marka seçin",
+                                icon = Icons.Default.DirectionsCar,
+                                brands = brands,
+                                onBrandSelected = onBrandSelected
+                            )
+
+                            // Series Selection
+                            AnimatedVisibility(
+                                visible = selectedBrand != null,
+                                enter = fadeIn() + slideInVertically(),
+                                exit = fadeOut() + slideOutVertically()
+                            ) {
+                                EnhancedSeriesDropdown(
+                                    label = "Seri",
+                                    value = selectedSeries?.name ?: "",
+                                    placeholder = "Seri seçin",
+                                    icon = Icons.Default.DirectionsCar,
+                                    series = selectedBrand?.series ?: emptyList(),
+                                    onSeriesSelected = onSeriesSelected
+                                )
+                            }
+
+                            // Model Selection
+                            AnimatedVisibility(
+                                visible = selectedSeries != null && selectedSeries.models.isNotEmpty(),
+                                enter = fadeIn() + slideInVertically(),
+                                exit = fadeOut() + slideOutVertically()
+                            ) {
+                                EnhancedModelDropdown(
+                                    label = "Model",
+                                    value = selectedModel?.name ?: "",
+                                    placeholder = "Model seçin",
+                                    icon = Icons.Default.DirectionsCar,
+                                    models = selectedSeries?.models ?: emptyList(),
+                                    onModelSelected = onModelSelected
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Location Section
+                item {
+                    Text(
+                        "Konum Bilgileri",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF333333)
+                        ),
+                        modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+                    )
+                }
+
+                item {
+                    EnhancedFilterCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            // Enhanced City Selection
+                            EnhancedLocationDropdown(
+                                label = "Şehir",
+                                value = filters.city,
+                                placeholder = "Şehir seçin",
+                                icon = Icons.Default.LocationCity,
+                                options = cities,
+                                onOptionSelected = { onCitySelected(it as String) }
+                            )
+
+                            // Enhanced District Selection
+                            AnimatedVisibility(
+                                visible = filters.city.isNotEmpty(),
+                                enter = fadeIn() + slideInVertically(),
+                                exit = fadeOut() + slideOutVertically()
+                            ) {
+                                EnhancedLocationDropdown(
+                                    label = "İlçe",
+                                    value = filters.district,
+                                    placeholder = "İlçe seçin",
+                                    icon = Icons.Default.LocationOn,
+                                    options = districts.map { it.name },
+                                    onOptionSelected = { selectedName ->
+                                        districts.find { it.name == selectedName }?.let { district ->
+                                            onDistrictSelected(district)
+                                        }
+                                    }
+                                )
+                            }
+
+                            // Enhanced Neighborhood Selection
+                            AnimatedVisibility(
+                                visible = filters.district.isNotEmpty(),
+                                enter = fadeIn() + slideInVertically(),
+                                exit = fadeOut() + slideOutVertically()
+                            ) {
+                                EnhancedLocationDropdown(
+                                    label = "Mahalle",
+                                    value = filters.neighborhood,
+                                    placeholder = "Mahalle seçin",
+                                    icon = Icons.Default.Place,
+                                    options = neighborhoods,
+                                    onOptionSelected = { onNeighborhoodSelected(it as String) }
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Filter Categories with cards
                 item {
                     Text(
@@ -620,69 +821,7 @@ fun FilterScreen(
                     }
                 }
 
-                // Location Section
-                item {
-                    Text(
-                        "Konum Bilgileri",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF333333)
-                        ),
-                        modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
-                    )
-                }
 
-                item {
-                    EnhancedFilterCard {
-                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            // Enhanced City Selection
-                            EnhancedLocationDropdown(
-                                label = "Şehir",
-                                value = filters.city,
-                                placeholder = "Şehir seçin",
-                                icon = Icons.Default.LocationCity,
-                                options = cities,
-                                onOptionSelected = { onCitySelected(it as String) }
-                            )
-
-                            // Enhanced District Selection
-                            AnimatedVisibility(
-                                visible = filters.city.isNotEmpty(),
-                                enter = fadeIn() + slideInVertically(),
-                                exit = fadeOut() + slideOutVertically()
-                            ) {
-                                EnhancedLocationDropdown(
-                                    label = "İlçe",
-                                    value = filters.district,
-                                    placeholder = "İlçe seçin",
-                                    icon = Icons.Default.LocationOn,
-                                    options = districts.map { it.name },
-                                    onOptionSelected = { selectedName ->
-                                        districts.find { it.name == selectedName }?.let { district ->
-                                            onDistrictSelected(district)
-                                        }
-                                    }
-                                )
-                            }
-
-                            // Enhanced Neighborhood Selection
-                            AnimatedVisibility(
-                                visible = filters.district.isNotEmpty(),
-                                enter = fadeIn() + slideInVertically(),
-                                exit = fadeOut() + slideOutVertically()
-                            ) {
-                                EnhancedLocationDropdown(
-                                    label = "Mahalle",
-                                    value = filters.neighborhood,
-                                    placeholder = "Mahalle seçin",
-                                    icon = Icons.Default.Place,
-                                    options = neighborhoods,
-                                    onOptionSelected = { onNeighborhoodSelected(it as String) }
-                                )
-                            }
-                        }
-                    }
-                }
             }
 
             // Enhanced Apply Button
@@ -1006,7 +1145,10 @@ fun EnhancedLocationDropdown(
 
             ExposedDropdownMenu(
                 expanded = expanded,
-                onDismissRequest = { expanded = false }
+                onDismissRequest = { expanded = false },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
             ) {
                 options.forEach { option ->
                     DropdownMenuItem(
@@ -1018,6 +1160,306 @@ fun EnhancedLocationDropdown(
                         },
                         onClick = {
                             onOptionSelected(option)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EnhancedBrandDropdown(
+    label: String,
+    value: String,
+    placeholder: String,
+    icon: ImageVector,
+    brands: List<Brand>,
+    onBrandSelected: (Brand) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedBrand = brands.find { it.name == value }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = Color(0xFFFF4444),
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF333333)
+                )
+            )
+        }
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                placeholder = {
+                    Text(
+                        placeholder,
+                        color = Color(0xFF999999)
+                    )
+                },
+                leadingIcon = {
+                    selectedBrand?.imagePath?.let { imagePath ->
+                        if (imagePath.isNotEmpty()) {
+                            AsyncImage(
+                                model = imagePath,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
+                },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFFF4444),
+                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                    focusedLabelColor = Color(0xFFFF4444),
+                    unfocusedLabelColor = Color(0xFF999999),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color(0xFFFAFAFA)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
+            ) {
+                brands.forEach { brand ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            ) {
+                                brand.imagePath?.let { imagePath ->
+                                    AsyncImage(
+                                        model = imagePath,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                Text(
+                                    brand.name,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        },
+                        onClick = {
+                            onBrandSelected(brand)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EnhancedSeriesDropdown(
+    label: String,
+    value: String,
+    placeholder: String,
+    icon: ImageVector,
+    series: List<GetBrandSeries>,
+    onSeriesSelected: (GetBrandSeries) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = Color(0xFFFF4444),
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF333333)
+                )
+            )
+        }
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                placeholder = {
+                    Text(
+                        placeholder,
+                        color = Color(0xFF999999)
+                    )
+                },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFFF4444),
+                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                    focusedLabelColor = Color(0xFFFF4444),
+                    unfocusedLabelColor = Color(0xFF999999),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color(0xFFFAFAFA)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
+            ) {
+                series.forEach { series ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                series.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        },
+                        onClick = {
+                            onSeriesSelected(series)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EnhancedModelDropdown(
+    label: String,
+    value: String,
+    placeholder: String,
+    icon: ImageVector,
+    models: List<GetBrandSeriesModels>,
+    onModelSelected: (GetBrandSeriesModels) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = Color(0xFFFF4444),
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF333333)
+                )
+            )
+        }
+
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                placeholder = {
+                    Text(
+                        placeholder,
+                        color = Color(0xFF999999)
+                    )
+                },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFFF4444),
+                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                    focusedLabelColor = Color(0xFFFF4444),
+                    unfocusedLabelColor = Color(0xFF999999),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color(0xFFFAFAFA)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
+            ) {
+                models.forEach { model ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                model.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        },
+                        onClick = {
+                            onModelSelected(model)
                             expanded = false
                         }
                     )
@@ -1177,3 +1619,4 @@ fun RangeDialog(title: String, initialMin: Int, initialMax: Int, onDismiss: () -
         }
     )
 } 
+

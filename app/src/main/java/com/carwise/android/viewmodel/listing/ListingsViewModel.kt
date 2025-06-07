@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.util.Log
 
 data class ListingsState(
     // Listings
@@ -43,7 +44,32 @@ data class ListingsState(
     // Loading States
     val isLoadingBrands: Boolean = false,
     val isLoadingSeries: Boolean = false,
-    val isLoadingModels: Boolean = false
+    val isLoadingModels: Boolean = false,
+    
+    // Brand Selection State
+    val selectedBrand: Brand? = null,
+    val selectedSeries: GetBrandSeries? = null,
+    val selectedModel: GetBrandSeriesModels? = null
+)
+
+data class ListingFilters(
+    val brandId: String = "",
+    val seriesId: String = "",
+    val modelId: String = "",
+    val priceRange: Pair<Int, Int> = Pair(0, Int.MAX_VALUE),
+    val yearRange: Pair<Int, Int> = Pair(0, 2024),
+    val fuelType: String = "",
+    val transmissionType: String = "",
+    val bodyType: String = "",
+    val color: String = "",
+    val kilometersRange: Pair<Int, Int> = Pair(0, Int.MAX_VALUE),
+    val enginePowerRange: Pair<Int, Int> = Pair(0, Int.MAX_VALUE),
+    val engineVolumeRange: Pair<Int, Int> = Pair(0, Int.MAX_VALUE),
+    val driveType: String = "",
+    val city: String = "",
+    val district: String = "",
+    val neighborhood: String = "",
+    val heavyDamage: Boolean? = null
 )
 
 @HiltViewModel
@@ -54,6 +80,9 @@ class ListingsViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(ListingsState())
     val state: StateFlow<ListingsState> = _state.asStateFlow()
+
+    // Cache for brands
+    private var cachedBrands: List<Brand>? = null
 
     private var currentPage = 1
     private var isInitialLoad = true
@@ -77,12 +106,27 @@ class ListingsViewModel @Inject constructor(
     private fun loadInitialData() {
         viewModelScope.launch {
             try {
+                // Eğer cache'de varsa kullan
+                if (cachedBrands != null) {
+                    _state.update { 
+                        it.copy(
+                            brands = cachedBrands!!,
+                            isLoadingBrands = false,
+                            error = null
+                        )
+                    }
+                    loadListings()
+                    return@launch
+                }
+
                 _state.update { it.copy(isLoadingBrands = true, error = null) }
                 when (val result = repository.getBrands()) {
                     is ResultState.Success -> {
+                        // Cache'e kaydet
+                        cachedBrands = result.data.brands.sortedBy { brand -> brand.name }
                         _state.update { 
                             it.copy(
-                                brands = result.data.brands.sortedBy { brand -> brand.name },
+                                brands = cachedBrands!!,
                                 isLoadingBrands = false,
                                 error = null
                             )
@@ -227,30 +271,21 @@ class ListingsViewModel @Inject constructor(
     fun selectBrand(brand: Brand) {
         viewModelScope.launch {
             try {
-                _state.update { 
-                    it.copy(
-                        filters = it.filters.copy(
+                _state.update { currentState ->
+                    currentState.copy(
+                        selectedBrand = if (brand.id.isEmpty()) null else brand,
+                        selectedSeries = null,
+                        selectedModel = null,
+                        filters = currentState.filters.copy(
                             brandId = brand.id,
                             seriesId = "",
-                            modelId = "",
-                        ),
-                        selectedBrandSeries = brand.series,
-                        selectedSeriesModels = emptyList(),
-                        isLoading = false,
-                        error = null
+                            modelId = ""
+                        )
                     )
                 }
-                // Marka seçildiğinde listeyi yenile
-                currentPage = 1
-                isInitialLoad = true
-                loadListings()
+                refreshListings()
             } catch (e: Exception) {
-                _state.update { 
-                    it.copy(
-                        error = "Marka seçilirken bir hata oluştu",
-                        isLoading = false
-                    )
-                }
+                Log.e("ListingsViewModel", "Error selecting brand: ${e.message}")
             }
         }
     }
@@ -258,28 +293,19 @@ class ListingsViewModel @Inject constructor(
     fun selectSeries(series: GetBrandSeries) {
         viewModelScope.launch {
             try {
-                _state.update { 
-                    it.copy(
-                        filters = it.filters.copy(
+                _state.update { currentState ->
+                    currentState.copy(
+                        selectedSeries = if (series.id.isEmpty()) null else series,
+                        selectedModel = null,
+                        filters = currentState.filters.copy(
                             seriesId = series.id,
-                            modelId = "",
-                        ),
-                        selectedSeriesModels = series.models,
-                        isLoading = false,
-                        error = null
+                            modelId = ""
+                        )
                     )
                 }
-                // Seri seçildiğinde listeyi yenile
-                currentPage = 1
-                isInitialLoad = true
-                loadListings()
+                refreshListings()
             } catch (e: Exception) {
-                _state.update { 
-                    it.copy(
-                        error = "Seri seçilirken bir hata oluştu",
-                        isLoading = false
-                    )
-                }
+                Log.e("ListingsViewModel", "Error selecting series: ${e.message}")
             }
         }
     }
@@ -287,26 +313,17 @@ class ListingsViewModel @Inject constructor(
     fun selectModel(model: GetBrandSeriesModels) {
         viewModelScope.launch {
             try {
-                _state.update { 
-                    it.copy(
-                        filters = it.filters.copy(
-                            modelId = model.id,
-                        ),
-                        isLoading = false,
-                        error = null
+                _state.update { currentState ->
+                    currentState.copy(
+                        selectedModel = if (model.id.isEmpty()) null else model,
+                        filters = currentState.filters.copy(
+                            modelId = model.id
+                        )
                     )
                 }
-                // Model seçildiğinde listeyi yenile
-                currentPage = 1
-                isInitialLoad = true
-                loadListings()
+                refreshListings()
             } catch (e: Exception) {
-                _state.update { 
-                    it.copy(
-                        error = "Model seçilirken bir hata oluştu",
-                        isLoading = false
-                    )
-                }
+                Log.e("ListingsViewModel", "Error selecting model: ${e.message}")
             }
         }
     }
@@ -314,27 +331,40 @@ class ListingsViewModel @Inject constructor(
     fun clearBrandSelection() {
         viewModelScope.launch {
             try {
+                // Önce model seçimini temizle
                 _state.update {
                     it.copy(
-                        filters = it.filters.copy(
-                            brandId = "",
-                            seriesId = "",
-                            modelId = "",
-                        ),
-                        selectedBrandSeries = emptyList(),
-                        selectedSeriesModels = emptyList(),
-                        error = null
+                        selectedModel = null,
+                        filters = it.filters.copy(modelId = "")
                     )
                 }
-                // Seçimler temizlendiğinde listeyi yenile
+
+                // Sonra seri seçimini temizle
+                _state.update {
+                    it.copy(
+                        selectedSeries = null,
+                        selectedSeriesModels = emptyList(),
+                        filters = it.filters.copy(seriesId = "")
+                    )
+                }
+
+                // En son marka seçimini temizle
+                _state.update {
+                    it.copy(
+                        selectedBrand = null,
+                        selectedBrandSeries = emptyList(),
+                        filters = it.filters.copy(brandId = "")
+                    )
+                }
+
+                // Listeyi yenile
                 currentPage = 1
                 isInitialLoad = true
                 loadListings()
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
-                        error = "Seçimler temizlenirken bir hata oluştu",
-                        isLoading = false
+                        error = "Seçimler temizlenirken bir hata oluştu: ${e.message}"
                     )
                 }
             }
@@ -352,9 +382,9 @@ class ListingsViewModel @Inject constructor(
                 val activeFilters = mutableListOf<String>()
 
                 // Marka, seri ve model filtrelerini ekle
-                val selectedBrand = state.value.brands.find { it.id == filters.brandId }
-                val selectedSeries = state.value.selectedBrandSeries.find { it.id == filters.seriesId }
-                val selectedModel = state.value.selectedSeriesModels.find { it.id == filters.modelId }
+                val selectedBrand = state.value.selectedBrand
+                val selectedSeries = state.value.selectedSeries
+                val selectedModel = state.value.selectedModel
 
                 selectedBrand?.let { activeFilters.add("Marka: ${it.name}") }
                 selectedSeries?.let { activeFilters.add("Seri: ${it.name}") }
@@ -515,6 +545,42 @@ class ListingsViewModel @Inject constructor(
             it.copy(
                 filters = it.filters.copy(neighborhood = neighborhood)
             )
+        }
+    }
+
+    fun clearAllFilters() {
+        viewModelScope.launch {
+            try {
+                _state.update { currentState ->
+                    currentState.copy(
+                        selectedBrand = null,
+                        selectedSeries = null,
+                        selectedModel = null,
+                        filters = ListingFilters(
+                            brandId = "",
+                            seriesId = "",
+                            modelId = "",
+                            priceRange = Pair(0, 0),
+                            yearRange = Pair(0, 2024),
+                            fuelType = "",
+                            transmissionType = "",
+                            bodyType = "",
+                            color = "",
+                            kilometersRange = Pair(0, 0),
+                            enginePowerRange = Pair(0, 0),
+                            engineVolumeRange = Pair(0, 0),
+                            driveType = "",
+                            city = "",
+                            district = "",
+                            neighborhood = "",
+                            heavyDamage = null
+                        )
+                    )
+                }
+                refreshListings()
+            } catch (e: Exception) {
+                Log.e("ListingsViewModel", "Error clearing filters: ${e.message}")
+            }
         }
     }
 } 
