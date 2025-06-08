@@ -18,6 +18,10 @@ import com.carwise.android.view.create_listing.CreateListingScreen
 import com.carwise.android.view.listing.MyListingsScreen
 import com.carwise.android.view.profile.ProfileScreen
 import com.carwise.android.view.settings.SettingsScreen
+import com.carwise.android.view.settings.PrivacyPolicyScreen
+import com.carwise.android.view.settings.KVKKScreen
+import com.carwise.android.view.settings.LicensesScreen
+import com.carwise.android.view.settings.AboutScreen
 import com.carwise.android.view.upload.UploadPredictScreen
 import com.carwise.android.view.price_prediction.PricePredictionScreen
 import com.carwise.android.view.price_prediction.PricePredictionHistoryScreen
@@ -53,6 +57,10 @@ sealed class Screen(val route: String) {
     object Messages : Screen("messages/{listingId}/{userId}") {
         fun createRoute(listingId: String, userId: String) = "messages/$listingId/$userId"
     }
+    object PrivacyPolicy : Screen("settings/privacy_policy")
+    object KVKK : Screen("settings/kvkk")
+    object Licenses : Screen("settings/licenses")
+    object About : Screen("settings/about")
 }
 
 @Composable
@@ -138,8 +146,20 @@ fun CarwiseNavigation (
         composable(Screen.Settings.route) {
             SettingsScreen(navController)
         }   
+        composable(Screen.PrivacyPolicy.route) {
+            PrivacyPolicyScreen(navController)
+        }
+        composable(Screen.KVKK.route) {
+            KVKKScreen(navController)
+        }
+        composable(Screen.Licenses.route) {
+            LicensesScreen(navController)
+        }
+        composable(Screen.About.route) {
+            AboutScreen(navController)
+        }
         composable(route = Screen.MyListings.route) {
-            MyListingsScreen(navController)
+            com.carwise.android.view.listing.MyListingsScreen(navController)
         }
         composable(route = Screen.Favorites.route) {
             com.carwise.android.view.profile.FavoritesScreen(navController)

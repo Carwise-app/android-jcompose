@@ -9,6 +9,8 @@ import com.carwise.android.data.model.GetListingResponse
 import com.carwise.android.data.model.GetMessageResponse
 import com.carwise.android.data.model.GetNotificationResponse
 import com.carwise.android.data.model.GetPricePredictHistoryResponse
+import com.carwise.android.data.model.GetStatsResponse
+import com.carwise.android.data.model.GetUsersResponse
 import com.carwise.android.data.model.IdResponse
 import com.carwise.android.data.model.ImageResponse
 import com.carwise.android.data.model.ListListingResponse
@@ -280,6 +282,23 @@ interface CarwiseService {
 
     @PUT("notification/{id}")
     suspend fun readNotification(
+        @Path("id") id: String,
+    ): Response<Unit>
+
+    /**********************************************************************************************************************/
+
+    @GET("admin/count")
+    suspend fun getStats(
+    ): Response<GetStatsResponse>
+
+    @GET("admin/users")
+    suspend fun getAllUsers(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): Response<GetUsersResponse>
+
+    @DELETE("profile/{id}")
+    suspend fun deleteUser(
         @Path("id") id: String,
     ): Response<Unit>
 

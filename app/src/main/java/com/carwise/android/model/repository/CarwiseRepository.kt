@@ -28,6 +28,8 @@ import com.carwise.android.data.model.GetChatResponse
 import com.carwise.android.data.model.GetMessageResponse
 import com.carwise.android.data.model.GetNotificationResponse
 import com.carwise.android.data.model.GetPricePredictHistoryResponse
+import com.carwise.android.data.model.GetStatsResponse
+import com.carwise.android.data.model.GetUsersResponse
 import com.carwise.android.data.model.PricePredictionRequest
 import com.carwise.android.data.model.PricePredictionResponse
 import com.carwise.android.data.model.SetGetNotificationRequest
@@ -154,7 +156,10 @@ interface CarwiseRepository {
     suspend fun getNotifications(page: Int = 1, limit: Int = 10): ResultState<GetNotificationResponse>
     suspend fun deleteNotification(id: String): ResultState<Unit>
     suspend fun readNotification(id: String): ResultState<Unit>
+    /*-----------Admin SERVICE-------------*/
 
-
+    suspend fun getStats() :ResultState<GetStatsResponse>
+    suspend fun getUsers(page: Int = 1, limit: Int = 10): ResultState<GetUsersResponse>
+    suspend fun deleteUser(id: String): ResultState<Unit>
 
 }

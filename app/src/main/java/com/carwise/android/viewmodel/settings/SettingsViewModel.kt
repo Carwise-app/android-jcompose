@@ -1,32 +1,24 @@
 package com.carwise.android.viewmodel.settings
 
-import android.content.Intent
-import android.provider.Settings
-import android.util.Log
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.carwise.android.data.model.ResultState
 import com.carwise.android.util.NotificationManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class SettingsState(
-    val appNotificationsEnabled: Boolean = false,
-    val emailNotificationsEnabled: Boolean = false,
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val shouldOpenSystemSettings: Boolean = false,
-    val showNotificationDialog: Boolean = false
-)
-
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val notificationManager: NotificationManager
+    private val notificationManager: NotificationManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
+
     private val _state = MutableStateFlow(SettingsState())
     val state: StateFlow<SettingsState> = _state.asStateFlow()
 
@@ -36,149 +28,205 @@ class SettingsViewModel @Inject constructor(
 
     private fun loadSettings() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(
-                isLoading = true,
-                error = null
-            )
+            _state.update { it.copy(isLoading = true, error = null) }
             try {
                 val appNotifications = notificationManager.isAppNotificationsEnabled()
                 val emailNotifications = notificationManager.isEmailNotificationsEnabled()
-                
-                _state.value = _state.value.copy(
+
+                _state.update { it.copy(
                     appNotificationsEnabled = appNotifications,
                     emailNotificationsEnabled = emailNotifications,
                     isLoading = false
-                )
+                ) }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(
+                _state.update { it.copy(
                     isLoading = false,
                     error = "Ayarlar yüklenirken bir hata oluştu: ${e.message}"
-                )
+                ) }
             }
         }
     }
 
     fun showNotificationDialog() {
-        _state.value = _state.value.copy(showNotificationDialog = true)
+        _state.update { it.copy(showNotificationDialog = true) }
     }
 
     fun hideNotificationDialog() {
-        _state.value = _state.value.copy(
+        _state.update { it.copy(
             showNotificationDialog = false,
             appNotificationsEnabled = false
-        )
+        ) }
     }
 
     fun updateAppNotifications(enabled: Boolean) {
         if (!enabled) {
-            // Bildirimleri kapatma işlemi
             viewModelScope.launch {
-                _state.value = _state.value.copy(isLoading = true)
+                _state.update { it.copy(isLoading = true) }
                 try {
                     notificationManager.setAppNotificationsEnabled(false)
-                    _state.value = _state.value.copy(
+                    _state.update { it.copy(
                         appNotificationsEnabled = false,
                         isLoading = false,
                         error = null
-                    )
+                    ) }
                 } catch (e: Exception) {
-                    _state.value = _state.value.copy(
+                    _state.update { it.copy(
                         isLoading = false,
                         error = "Bildirim ayarları güncellenirken bir hata oluştu: ${e.message}"
-                    )
+                    ) }
                 }
             }
             return
         }
-
-        // Bildirimleri açma işlemi için önce dialog göster
         showNotificationDialog()
     }
 
     fun proceedWithNotificationPermission() {
         viewModelScope.launch {
-            _state.value = _state.value.copy(
+            _state.update { it.copy(
                 isLoading = true,
                 showNotificationDialog = false
-            )
+            ) }
             try {
-                // Önce sistem iznini kontrol et
                 val hasPermission = notificationManager.getDeviceToken() != null
-                
+
                 if (!hasPermission) {
-                    // İzin yoksa, sistem izin dialogunu göster
                     notificationManager.initialize()
-                    
-                    // İzin durumunu tekrar kontrol et
                     val permissionGranted = notificationManager.getDeviceToken() != null
-                    
+
                     if (!permissionGranted) {
-                        // İzin hala verilmediyse sistem ayarlarına yönlendir
-                        _state.value = _state.value.copy(
+                        _state.update { it.copy(
                             isLoading = false,
                             shouldOpenSystemSettings = true,
                             appNotificationsEnabled = false
-                        )
+                        ) }
                         return@launch
                     }
                 }
-                
-                // İzin varsa bildirimleri aç
+
                 notificationManager.setAppNotificationsEnabled(true)
-                _state.value = _state.value.copy(
+                _state.update { it.copy(
                     appNotificationsEnabled = true,
                     isLoading = false,
                     error = null,
                     shouldOpenSystemSettings = false
-                )
+                ) }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(
+                _state.update { it.copy(
                     isLoading = false,
                     error = "Bildirim ayarları güncellenirken bir hata oluştu: ${e.message}",
                     shouldOpenSystemSettings = false,
                     appNotificationsEnabled = false
-                )
+                ) }
             }
         }
     }
 
     fun resetSystemSettingsFlag() {
         viewModelScope.launch {
-            // Sistem ayarlarından dönüldüğünde bildirim durumunu kontrol et
             val hasPermission = notificationManager.getDeviceToken() != null
             if (hasPermission) {
-                // İzin verilmişse bildirimleri aç
                 notificationManager.setAppNotificationsEnabled(true)
-                _state.value = _state.value.copy(
+                _state.update { it.copy(
                     shouldOpenSystemSettings = false,
                     appNotificationsEnabled = true
-                )
+                ) }
             } else {
-                // İzin hala verilmemişse switch'i false yap
-                _state.value = _state.value.copy(
+                _state.update { it.copy(
                     shouldOpenSystemSettings = false,
                     appNotificationsEnabled = false
-                )
+                ) }
             }
         }
     }
 
     fun updateEmailNotifications(enabled: Boolean) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true)
+            _state.update { it.copy(isLoading = true) }
             try {
                 notificationManager.setEmailNotificationsEnabled(enabled)
-                _state.value = _state.value.copy(
+                _state.update { it.copy(
                     emailNotificationsEnabled = enabled,
                     isLoading = false,
                     error = null
-                )
+                ) }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(
+                _state.update { it.copy(
                     isLoading = false,
                     error = "Email bildirim ayarları güncellenirken bir hata oluştu: ${e.message}"
-                )
+                ) }
             }
         }
     }
-} 
+
+    fun showDataUsageDialog() {
+        _state.update { it.copy(showDataUsageDialog = true) }
+    }
+
+    fun hideDataUsageDialog() {
+        _state.update { it.copy(showDataUsageDialog = false) }
+    }
+
+    fun clearCache() {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true) }
+            try {
+                context.cacheDir.deleteRecursively()
+                _state.update { it.copy(isLoading = false, cacheCleared = true) }
+            } catch (e: Exception) {
+                _state.update { it.copy(error = e.message, isLoading = false) }
+            }
+        }
+    }
+
+    fun openPrivacyPolicy() {
+        _state.update { it.copy(shouldOpenPrivacyPolicy = true) }
+    }
+
+    fun resetPrivacyPolicyFlag() {
+        _state.update { it.copy(shouldOpenPrivacyPolicy = false) }
+    }
+
+    fun openKVKK() {
+        _state.update { it.copy(shouldOpenKVKK = true) }
+    }
+
+    fun resetKVKKFlag() {
+        _state.update { it.copy(shouldOpenKVKK = false) }
+    }
+
+    fun openLicenses() {
+        _state.update { it.copy(shouldOpenLicenses = true) }
+    }
+
+    fun resetLicensesFlag() {
+        _state.update { it.copy(shouldOpenLicenses = false) }
+    }
+
+    fun openAbout() {
+        _state.update { it.copy(shouldOpenAbout = true) }
+    }
+
+    fun resetAboutFlag() {
+        _state.update { it.copy(shouldOpenAbout = false) }
+    }
+
+    fun clearError() {
+        _state.update { it.copy(error = null) }
+    }
+}
+
+data class SettingsState(
+    val appNotificationsEnabled: Boolean = false,
+    val emailNotificationsEnabled: Boolean = false,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val shouldOpenSystemSettings: Boolean = false,
+    val showNotificationDialog: Boolean = false,
+    val showDataUsageDialog: Boolean = false,
+    val shouldOpenPrivacyPolicy: Boolean = false,
+    val shouldOpenKVKK: Boolean = false,
+    val shouldOpenLicenses: Boolean = false,
+    val shouldOpenAbout: Boolean = false,
+    val cacheCleared: Boolean = false
+) 

@@ -13,6 +13,8 @@ import com.carwise.android.data.model.GetListingResponse
 import com.carwise.android.data.model.GetMessageResponse
 import com.carwise.android.data.model.GetNotificationResponse
 import com.carwise.android.data.model.GetPricePredictHistoryResponse
+import com.carwise.android.data.model.GetStatsResponse
+import com.carwise.android.data.model.GetUsersResponse
 import com.carwise.android.data.model.IdResponse
 import com.carwise.android.data.model.ImageResponse
 import com.carwise.android.data.model.ListListingResponse
@@ -1329,6 +1331,92 @@ class CarwiseRepositoryImpl @Inject constructor(
             ResultState.Error(
                 ErrorResponse(
                     error = "Bildirim okunamadı. Lütfen daha sonra tekrar deneyin."
+                )
+            )
+        }
+    }
+
+    override suspend fun getStats(): ResultState<GetStatsResponse> {
+        return try {
+            val response = carwiseService.getStats()
+            if (response.isSuccessful) {
+                response.body()?.let {
+                    ResultState.Success(it)
+                } ?:  ResultState.Error(
+                    ErrorResponse(
+                        error = "Bilgiler alınamadı. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            } else {
+                ResultState.Error(
+                    ErrorResponse(
+                        error = "Bilgiler alınamadı. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            ResultState.Error(
+                ErrorResponse(
+                    error = "Bilgiler alınamadı. Lütfen daha sonra tekrar deneyin."
+                )
+            )
+        }
+    }
+
+    override suspend fun getUsers(page: Int, limit: Int): ResultState<GetUsersResponse> {
+        return try {
+            val response = carwiseService.getAllUsers(
+                page = page,
+                limit = limit
+            )
+            if (response.isSuccessful) {
+                response.body()?.let {
+                    ResultState.Success(it)
+                } ?:  ResultState.Error(
+                    ErrorResponse(
+                        error = "Bilgiler alınamadı. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            } else {
+                ResultState.Error(
+                    ErrorResponse(
+                        error = "Bilgiler alınamadı. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            ResultState.Error(
+                ErrorResponse(
+                    error = "Bilgiler alınamadı. Lütfen daha sonra tekrar deneyin."
+                )
+            )
+        }
+    }
+
+    override suspend fun deleteUser(id: String): ResultState<Unit> {
+        return try {
+            val response = carwiseService.deleteUser(
+              id = id
+            )
+            if (response.isSuccessful) {
+                response.body()?.let {
+                    ResultState.Success(it)
+                } ?:  ResultState.Error(
+                    ErrorResponse(
+                        error = "Kullanıcı Silinemedi. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            } else {
+                ResultState.Error(
+                    ErrorResponse(
+                        error = "Kullanıcı Silinemedi. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            ResultState.Error(
+                ErrorResponse(
+                    error = "Kullanıcı Silinemedi. Lütfen daha sonra tekrar deneyin."
                 )
             )
         }
