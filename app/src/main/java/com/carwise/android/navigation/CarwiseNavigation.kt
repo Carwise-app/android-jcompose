@@ -1,6 +1,10 @@
 package com.carwise.android.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -28,6 +32,7 @@ import com.carwise.android.view.price_prediction.PricePredictionHistoryScreen
 import com.carwise.android.view.chats.ChatsScreen
 import com.carwise.android.view.messages.MessagesScreen
 import com.carwise.android.view.update_listing.UpdateListingScreen
+import com.carwise.android.view.dashboard.DashboardScreen
 
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
@@ -61,6 +66,7 @@ sealed class Screen(val route: String) {
     object KVKK : Screen("settings/kvkk")
     object Licenses : Screen("settings/licenses")
     object About : Screen("settings/about")
+    object Dashboard : Screen("dashboard")
 }
 
 @Composable
@@ -193,6 +199,9 @@ fun CarwiseNavigation (
             val listingId = backStackEntry.arguments?.getString("listingId") ?: ""
             val userId = backStackEntry.arguments?.getString("userId") ?: ""
             MessagesScreen(navController, listingId, userId)
+        }
+        composable(Screen.Dashboard.route) {
+            DashboardScreen(navController)
         }
     }
 }

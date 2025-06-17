@@ -60,6 +60,7 @@ fun ProfileScreen(
     val authState by authViewModel.authState.collectAsState()
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = profileState.isLoading)
 
 
@@ -77,6 +78,15 @@ fun ProfileScreen(
         if (profileState.isUpdateSuccess) {
             showEditDialog = false
             profileViewModel.clearUpdateState()
+        }
+    }
+
+    // Handle successful account deletion
+    LaunchedEffect(profileState.isDeleteSuccess) {
+        if (profileState.isDeleteSuccess) {
+            showDeleteAccountDialog = false
+            profileViewModel.clearDeleteState()
+            authViewModel.logout()
         }
     }
 
@@ -245,6 +255,12 @@ fun ProfileScreen(
                     onClick = { showLogoutDialog = true },
                     isDestructive = true
                 )
+                ActionButton(
+                    title = "Hesabımı Sil",
+                    icon = Icons.Default.Delete,
+                    onClick = { showDeleteAccountDialog = true },
+                    isDestructive = true
+                )
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
@@ -318,6 +334,78 @@ fun ProfileScreen(
                 ) {
                     Text(
                         text = "Hayır",
+                        color = Color.Gray
+                    )
+                }
+            },
+            containerColor = Color.White,
+            titleContentColor = Color.Black,
+            textContentColor = Color.Gray
+        )
+    }
+
+    // Delete Account Dialog
+    if (showDeleteAccountDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                if (!profileState.isDeleting) {
+                    showDeleteAccountDialog = false 
+                }
+            },
+            title = {
+                Text(
+                    text = "Hesabı Sil",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.Black
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Hesabınızı silmek istediğinizden emin misiniz?",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Bu işlem geri alınamaz ve tüm verileriniz kalıcı olarak silinecektir.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Red.copy(alpha = 0.7f)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        profileViewModel.deleteAccount()
+                    },
+                    enabled = !profileState.isDeleting
+                ) {
+                    if (profileState.isDeleting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = appRed,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = "Hesabı Sil",
+                            color = Color.Red
+                        )
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { 
+                        if (!profileState.isDeleting) {
+                            showDeleteAccountDialog = false 
+                        }
+                    },
+                    enabled = !profileState.isDeleting
+                ) {
+                    Text(
+                        text = "İptal",
                         color = Color.Gray
                     )
                 }

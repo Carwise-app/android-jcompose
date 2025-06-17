@@ -1336,6 +1336,60 @@ class CarwiseRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun readAllNotification(): ResultState<Unit> {
+        return try {
+            val response = carwiseService.readAllNotification()
+            if (response.isSuccessful) {
+                response.body()?.let {
+                    ResultState.Success(it)
+                } ?:  ResultState.Error(
+                    ErrorResponse(
+                        error = "Bildirimler okunamadı. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            } else {
+                ResultState.Error(
+                    ErrorResponse(
+                        error = "Bildirimler okunamadı. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            ResultState.Error(
+                ErrorResponse(
+                    error = "Bildirimler okunamadı. Lütfen daha sonra tekrar deneyin."
+                )
+            )
+        }
+    }
+
+    override suspend fun deleteAllNotification(): ResultState<Unit> {
+        return try {
+            val response = carwiseService.deleteAllNotification()
+            if (response.isSuccessful) {
+                response.body()?.let {
+                    ResultState.Success(it)
+                } ?:  ResultState.Error(
+                    ErrorResponse(
+                        error = "Bildirimler silinemedi. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            } else {
+                ResultState.Error(
+                    ErrorResponse(
+                        error = "Bildirimler silinemedi. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            ResultState.Error(
+                ErrorResponse(
+                    error = "Bildirimler silinemedi. Lütfen daha sonra tekrar deneyin."
+                )
+            )
+        }
+    }
+
     override suspend fun getStats(): ResultState<GetStatsResponse> {
         return try {
             val response = carwiseService.getStats()

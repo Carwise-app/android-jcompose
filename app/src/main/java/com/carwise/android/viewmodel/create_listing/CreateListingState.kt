@@ -39,16 +39,16 @@ data class CreateListingState(
     val selectedKilometers: Long? = null,
     
     // Damage Details
-    val frontBumper: String? = null,
-    val frontHood: String? = null,
-    val roof: String? = null,
-    val frontRightDoor: String? = null,
-    val rearRightDoor: String? = null,
-    val frontLeftMudguard: String? = null,
-    val frontLeftDoor: String? = null,
-    val rearLeftDoor: String? = null,
-    val rearLeftMudguard: String? = null,
-    val rearBumper: String? = null,
+    val frontBumper: String = "Orijinal",
+    val frontHood: String = "Orijinal",
+    val roof: String = "Orijinal",
+    val frontRightDoor: String = "Orijinal",
+    val rearRightDoor: String = "Orijinal",
+    val frontLeftMudguard: String = "Orijinal",
+    val frontLeftDoor: String = "Orijinal",
+    val rearLeftDoor: String = "Orijinal",
+    val rearLeftMudguard: String = "Orijinal",
+    val rearBumper: String = "Orijinal",
     
     // UI State
     val currentStep: Int = 0,

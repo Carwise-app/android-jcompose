@@ -156,6 +156,10 @@ interface CarwiseRepository {
     suspend fun getNotifications(page: Int = 1, limit: Int = 10): ResultState<GetNotificationResponse>
     suspend fun deleteNotification(id: String): ResultState<Unit>
     suspend fun readNotification(id: String): ResultState<Unit>
+
+    suspend fun readAllNotification(): ResultState<Unit>
+    suspend fun deleteAllNotification(): ResultState<Unit>
+
     /*-----------Admin SERVICE-------------*/
 
     suspend fun getStats() :ResultState<GetStatsResponse>

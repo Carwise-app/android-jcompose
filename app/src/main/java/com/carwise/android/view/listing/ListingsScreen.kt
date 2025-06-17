@@ -57,6 +57,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.ViewModule
+import com.carwise.android.view.components.ListingCardType
+import androidx.compose.ui.platform.LocalContext
+import com.carwise.android.data.local.CardTypePreference
 
 // Sabit listeler
 private val bodyTypes = listOf(
@@ -116,13 +121,23 @@ fun ListingsScreen(
     navController: NavController,
     viewModel: ListingsViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val cardTypeFlow = remember { CardTypePreference.getCardTypeFlow(context) }
+    var cardType by remember { mutableStateOf(ListingCardType.COMPACT) }
+
+    LaunchedEffect(Unit) {
+        cardTypeFlow.collect { savedType ->
+            cardType = savedType
+        }
+    }
+
     val state by viewModel.state.collectAsState()
     val listState = rememberLazyListState()
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = state.isLoading)
     var showFilterSheet by remember { mutableStateOf(false) }
     val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showSortMenu by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
     val cities by viewModel.cities.collectAsState()
     val districts by viewModel.districts.collectAsState()
     val neighborhoods by viewModel.neighborhoods.collectAsState()
@@ -263,7 +278,27 @@ fun ListingsScreen(
                         )
                     }
                 },
-                actions = {},
+                actions = {
+                    // Card type toggle button
+                    IconButton(
+                        onClick = {
+                            val newType = if (cardType == ListingCardType.COMPACT)
+                                ListingCardType.DETAILED else ListingCardType.COMPACT
+                            cardType = newType
+                            scope.launch {
+                                CardTypePreference.setCardType(context, newType)
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (cardType == ListingCardType.COMPACT)
+                                Icons.Default.ViewModule else Icons.Default.ViewList,
+                            contentDescription = if (cardType == ListingCardType.COMPACT)
+                                "Detaylı görünüme geç" else "Kompakt görünüme geç",
+                            tint = appRed
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White,
                     titleContentColor = Color.Black
@@ -294,7 +329,7 @@ fun ListingsScreen(
                         Text(
                             text = "Filtrele",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary
+                            color = Color.Black
                         )
                         if (activeFilterCount > 0) {
                             Spacer(modifier = Modifier.width(4.dp))
@@ -324,7 +359,7 @@ fun ListingsScreen(
                     Text(
                         text = "Sırala",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color.Black
                     )
                 }
             }
@@ -396,7 +431,8 @@ fun ListingsScreen(
                                 listing = listing,
                                 onListingClick = { id ->
                                     navController.navigate("listing_detail/$id")
-                                }
+                                },
+                                cardType = cardType
                             )
                         }
                         // Loading indicator for pagination

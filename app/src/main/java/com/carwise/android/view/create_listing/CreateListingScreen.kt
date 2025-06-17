@@ -65,6 +65,17 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.unit.sp
 import com.carwise.android.components.RichTextEditorComponent
 import com.carwise.android.view.components.PreviewStep
+import com.carwise.android.viewmodel.create_listing.ImageUploadState
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.carwise.android.view.listing.PredictionDetailDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -911,7 +922,7 @@ private fun DetailsSelectionStep(
                 ) {
                     val colors = listOf(
                         "Siyah", "Beyaz", "Gri", "Kırmızı", "Mavi", 
-                        "Yeşil", "Kahverengi", "Sarı", "Turuncu", "Mor"
+                        "Yeşil", "Kahverengi", "Sarı", "Turuncu", "Mor","Diğer"
                     )
                     colors.forEach { color ->
                         SelectionChip(
@@ -1462,12 +1473,24 @@ private fun PhotoSelectionStep(
 ) {
     val context = LocalContext.current
     val imageUploadStates by viewModel.imageUploadStates.collectAsState()
+    var selectedImageState by remember { mutableStateOf<ImageUploadState?>(null) }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
         if (uris.isNotEmpty()) {
             viewModel.addImages(uris)
         }
+    }
+
+
+    selectedImageState?.let { imageState ->
+        imageState.prediction?.let {
+            PredictionDetailDialog(
+                prediction = it,
+                onDismiss = { selectedImageState = null }
+            )
+        }
+
     }
 
     Column(
@@ -1550,8 +1573,12 @@ private fun PhotoSelectionStep(
                             modifier = Modifier
                                 .aspectRatio(1f)
                                 .clip(RoundedCornerShape(8.dp))
+                                .clickable { 
+                                    if (uploadState.prediction != null || uploadState.predictionError != null) {
+                                        selectedImageState = uploadState
+                                    }
+                                }
                         ) {
-                            // Fotoğraf önizlemesi
                             AsyncImage(
                                 model = uploadState.uri,
                                 contentDescription = null,
@@ -1559,7 +1586,74 @@ private fun PhotoSelectionStep(
                                 contentScale = ContentScale.Crop
                             )
                             
-                            // Yükleme durumu
+                            // Prediction Status Icon
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(8.dp)
+                            ) {
+                                Crossfade(
+                                    targetState = when {
+                                        uploadState.isPredicting -> "loading"
+                                        uploadState.prediction != null -> "prediction"
+                                        uploadState.predictionError != null -> "error"
+                                        else -> "none"
+                                    },
+                                    animationSpec = tween(durationMillis = 300),
+                                    label = "prediction_status"
+                                ) { state ->
+                                    when (state) {
+                                        "none" -> { /* Empty state */ }
+                                        else -> {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        when (state) {
+                                                            "loading" -> Color(0xFF2196F3).copy(alpha = 0.9f) // Modern Blue
+                                                            "prediction" -> if (uploadState.prediction?.prediction == true)
+                                                                Color(0xFF4CAF50).copy(alpha = 0.9f) // Modern Green
+                                                            else Color(0xFFFFA000).copy(alpha = 0.9f) // Modern Orange
+                                                            "error" -> Color(0xFFE53935).copy(alpha = 0.9f) // Modern Red
+                                                            else -> Color.Transparent
+                                                        }
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                when (state) {
+                                                    "loading" -> {
+                                                        CircularProgressIndicator(
+                                                            modifier = Modifier.size(20.dp),
+                                                            color = Color.White,
+                                                            strokeWidth = 2.dp
+                                                        )
+                                                    }
+                                                    "prediction" -> {
+                                                        Icon(
+                                                            imageVector = if (uploadState.prediction?.prediction == true)
+                                                                Icons.Default.VerifiedUser else Icons.Default.GppMaybe,
+                                                            contentDescription = null,
+                                                            tint = Color.White,
+                                                            modifier = Modifier.size(20.dp)
+                                                        )
+                                                    }
+                                                    "error" -> {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Error,
+                                                            contentDescription = null,
+                                                            tint = Color.White,
+                                                            modifier = Modifier.size(20.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Loading state
                             if (uploadState.isLoading) {
                                 Box(
                                     modifier = Modifier
@@ -1575,7 +1669,7 @@ private fun PhotoSelectionStep(
                                 }
                             }
                             
-                            // Hata durumu
+                            // Error state
                             uploadState.error?.let { error ->
                                 Box(
                                     modifier = Modifier
@@ -1604,7 +1698,7 @@ private fun PhotoSelectionStep(
                                 }
                             }
                             
-                            // Silme butonu
+                            // Delete button
                             IconButton(
                                 onClick = { viewModel.removeImage(index) },
                                 modifier = Modifier
@@ -1636,6 +1730,36 @@ private fun PhotoSelectionStep(
             )
         }
     }
+}
+
+@Composable
+private fun PredictionDetailItem(
+    label: String,
+    value: String,
+    color: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = color
+        )
+    }
+}
+
+private fun formatTimestamp(timestamp: Long): String {
+    val date = Date(timestamp * 1000) // Convert Unix timestamp to milliseconds
+    return SimpleDateFormat("dd MMMM yyyy HH:mm", Locale("tr")).format(date)
 }
 
 @Composable

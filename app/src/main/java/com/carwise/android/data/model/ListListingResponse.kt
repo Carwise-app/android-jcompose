@@ -27,4 +27,13 @@ data class Listing(
     val image: Image,
     @SerializedName("created_at")
     val createdAt: Long,
+    val year: Int,
+    val color:String,
+    val kilometers:Int,
+    val engine_power:Int,
+    val engine_volume:Int,
+    val transmission_type:String,
+    val fuel_type:String,
+    val body_type:String,
+    val drive_type:String
 )

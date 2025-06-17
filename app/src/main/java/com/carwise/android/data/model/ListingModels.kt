@@ -24,7 +24,7 @@ data class ListingFilters(
     
     // Price and Year
     val priceRange: Pair<Int, Int> = Pair(0, 0),
-    val yearRange: Pair<Int, Int> = Pair(1950, 0),
+    val yearRange: Pair<Int, Int> = Pair(0, 0),
     
     // Additional Details
     val kilometersRange: Pair<Int, Int> = Pair(0, 0),

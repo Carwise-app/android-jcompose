@@ -101,7 +101,7 @@ interface CarwiseService {
         @Part file: MultipartBody.Part
     ): Response<ImageResponse>
 
-    @GET("upload/{id}")
+    @GET("upload/{id}/predict")
     suspend fun uploadPredict(
         @Path("id") fileId: String
     ): Response<PredictionResponse>
@@ -283,6 +283,14 @@ interface CarwiseService {
     @PUT("notification/{id}")
     suspend fun readNotification(
         @Path("id") id: String,
+    ): Response<Unit>
+
+    @PUT("notification/mark-all-read")
+    suspend fun readAllNotification(
+    ): Response<Unit>
+
+    @DELETE("notification/delete-all")
+    suspend fun deleteAllNotification(
     ): Response<Unit>
 
     /**********************************************************************************************************************/

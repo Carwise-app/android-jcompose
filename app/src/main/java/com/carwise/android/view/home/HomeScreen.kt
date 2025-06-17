@@ -1,5 +1,6 @@
 package com.carwise.android.view.home
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -66,6 +67,8 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Chat
 import androidx.compose.material.icons.rounded.Check
@@ -79,13 +82,21 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.TrendingDown
 import com.carwise.android.data.model.Notification
 import kotlin.math.abs
+import androidx.compose.material.icons.outlined.Dashboard
 
 data class DrawerItem(
     val title: String,
     val icon: ImageVector,
     val route: String? = null,
-    val onClick: (() -> Unit)? = null
+    val onClick: (() -> Unit)? = null,
+    val category: DrawerCategory = DrawerCategory.MAIN
 )
+
+enum class DrawerCategory {
+    MAIN,
+    ACCOUNT,
+    ADMIN
+}
 
 @Composable
 private fun DrawerHeader(user: UserPayload?) {
@@ -131,14 +142,14 @@ private fun DrawerHeader(user: UserPayload?) {
                         fontWeight = FontWeight.Bold,
                         color = Color.Black,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = user.email,
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Gray,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                 } else {
                     Text(
@@ -153,6 +164,15 @@ private fun DrawerHeader(user: UserPayload?) {
     }
 }
 
+@Composable
+private fun DrawerCategoryHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelMedium,
+        color = Color.Gray,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    )
+}
 
 @Composable
 private fun PricePredictionCard(
@@ -472,43 +492,66 @@ fun HomeScreen(
         }
     }
 
-    val drawerItems = listOf(
-        DrawerItem(
-            title = "Ana Sayfa",
-            icon = Icons.Default.Home,
-            route = Screen.Home.route
-        ),
-        DrawerItem(
-            title = "Tüm İlanlar",
-            icon = Icons.Default.List,
-            route = Screen.Listings.route
-        ),
-        DrawerItem(
-            title = "İlanlarım",
-            icon = Icons.Default.DirectionsCar,
-            route = Screen.MyListings.route
-        ),
-        DrawerItem(
-            title = "Favorilerim",
-            icon = Icons.Default.Favorite,
-            route = Screen.Favorites.route
-        ),
-        DrawerItem(
-            title = "Mesajlarım",
-            icon = Icons.Default.Chat,
-            route = Screen.Chats.route
-        ),
-        DrawerItem(
-            title = "Ayarlar",
-            icon = Icons.Default.Settings,
-            route = Screen.Settings.route
-        ),
-        DrawerItem(
-            title = "Profilim",
-            icon = Icons.Default.Person,
-            route = Screen.Profile.route
-        )
-    )
+    val drawerItems = remember(homeState.user) {
+        listOf(
+            // Ana Menü
+            DrawerItem(
+                title = "Ana Sayfa",
+                icon = Icons.Default.Home,
+                route = Screen.Home.route,
+                category = DrawerCategory.MAIN
+            ),
+            DrawerItem(
+                title = "Tüm İlanlar",
+                icon = Icons.Default.List,
+                route = Screen.Listings.route,
+                category = DrawerCategory.MAIN
+            ),
+            DrawerItem(
+                title = "İlanlarım",
+                icon = Icons.Default.DirectionsCar,
+                route = Screen.MyListings.route,
+                category = DrawerCategory.MAIN
+            ),
+            DrawerItem(
+                title = "Favorilerim",
+                icon = Icons.Default.Favorite,
+                route = Screen.Favorites.route,
+                category = DrawerCategory.MAIN
+            ),
+            DrawerItem(
+                title = "Mesajlarım",
+                icon = Icons.Default.Chat,
+                route = Screen.Chats.route,
+                category = DrawerCategory.MAIN
+            ),
+
+            // Hesap İşlemleri
+            DrawerItem(
+                title = "Profilim",
+                icon = Icons.Default.Person,
+                route = Screen.Profile.route,
+                category = DrawerCategory.ACCOUNT
+            ),
+            DrawerItem(
+                title = "Ayarlar",
+                icon = Icons.Default.Settings,
+                route = Screen.Settings.route,
+                category = DrawerCategory.ACCOUNT
+            ),
+
+            // Admin Menüsü (sadece admin kullanıcılar için)
+            DrawerItem(
+                title = "Dashboard",
+                icon = Icons.Outlined.Dashboard,
+                route = Screen.Dashboard.route,
+                category = DrawerCategory.ADMIN
+            )
+        ).filter { item ->
+            // Admin menüsünü sadece admin kullanıcılara göster
+            item.category != DrawerCategory.ADMIN || homeState.user?.role == 2
+        }
+    }
 
     LaunchedEffect(authState.isAuthenticated) {
         if (!authState.isAuthenticated) {
@@ -528,9 +571,10 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
                         .padding(vertical = 16.dp)
                 ) {
-                    // App logo and name at the top
+                    // App Logo
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -552,33 +596,39 @@ fun HomeScreen(
                         )
                     }
 
-                    // Main drawer items (excluding Profilim)
-                    val mainDrawerItems = drawerItems.filter { it.title != "Profilim" }
-                    mainDrawerItems.forEach { item ->
-                        NavigationDrawerItem(
-                            icon = {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = null,
-                                    tint = if (item.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = item.title,
-                                    color = if (item.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
-                                )
-                            },
-                            selected = item.route == navController.currentBackStackEntry?.destination?.route,
-                            onClick = {
-                                scope.launch {
-                                    drawerState.close()
-                                    item.route?.let { route ->
-                                        if (route == Screen.Home.route || 
-                                            route == Screen.Profile.route || 
-                                            route == Screen.MyListings.route || 
-                                            route == Screen.Favorites.route || 
-                                            route == Screen.Settings.route) {
+                    // User Header
+                    DrawerHeader(user = homeState.user)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Drawer Items by Category
+                    val mainItems = drawerItems.filter { it.category == DrawerCategory.MAIN }
+                    val accountItems = drawerItems.filter { it.category == DrawerCategory.ACCOUNT }
+                    val adminItems = drawerItems.filter { it.category == DrawerCategory.ADMIN }
+
+                    // Ana Menü
+                    if (mainItems.isNotEmpty()) {
+                        DrawerCategoryHeader("Ana Menü")
+                        mainItems.forEach { item ->
+                            NavigationDrawerItem(
+                                icon = {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = null,
+                                        tint = if (item.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        text = item.title,
+                                        color = if (item.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
+                                    )
+                                },
+                                selected = item.route == navController.currentBackStackEntry?.destination?.route,
+                                onClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        item.route?.let { route ->
                                             navController.navigate(route) {
                                                 popUpTo(Screen.Home.route) {
                                                     saveState = true
@@ -586,65 +636,140 @@ fun HomeScreen(
                                                 launchSingleTop = true
                                                 restoreState = true
                                             }
-                                        } else {
-                                            navController.navigate(route)
                                         }
                                     }
-                                }
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = appRed.copy(alpha = 0.1f),
-                                unselectedContainerColor = Color.Transparent
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = appRed.copy(alpha = 0.1f),
+                                    unselectedContainerColor = Color.Transparent
+                                )
                             )
-                        )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Profilim at the very bottom, separated
-                    val profileItem = drawerItems.find { it.title == "Profilim" }
-                    if (profileItem != null) {
-                        Divider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            color = Color.LightGray
-                        )
-                        NavigationDrawerItem(
-                            icon = {
-                                Icon(
-                                    imageVector = profileItem.icon,
-                                    contentDescription = null,
-                                    tint = if (profileItem.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = profileItem.title,
-                                    color = if (profileItem.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
-                                )
-                            },
-                            selected = profileItem.route == navController.currentBackStackEntry?.destination?.route,
-                            onClick = {
-                                scope.launch {
-                                    drawerState.close()
-                                    profileItem.route?.let { route ->
-                                        navController.navigate(route) {
-                                            popUpTo(Screen.Home.route) {
-                                                saveState = true
+                    // Hesap İşlemleri
+                    if (accountItems.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                        DrawerCategoryHeader("Hesap İşlemleri")
+                        accountItems.forEach { item ->
+                            NavigationDrawerItem(
+                                icon = {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = null,
+                                        tint = if (item.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        text = item.title,
+                                        color = if (item.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
+                                    )
+                                },
+                                selected = item.route == navController.currentBackStackEntry?.destination?.route,
+                                onClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        item.route?.let { route ->
+                                            navController.navigate(route) {
+                                                popUpTo(Screen.Home.route) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
                                         }
                                     }
-                                }
-                            },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            colors = NavigationDrawerItemDefaults.colors(
-                                selectedContainerColor = appRed.copy(alpha = 0.1f),
-                                unselectedContainerColor = Color.Transparent
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = appRed.copy(alpha = 0.1f),
+                                    unselectedContainerColor = Color.Transparent
+                                )
                             )
-                        )
+                        }
                     }
+
+                    // Admin Menüsü
+                    if (adminItems.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                        DrawerCategoryHeader("Yönetici")
+                        adminItems.forEach { item ->
+                            NavigationDrawerItem(
+                                icon = {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = null,
+                                        tint = if (item.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        text = item.title,
+                                        color = if (item.route == navController.currentBackStackEntry?.destination?.route) appRed else Color.Gray
+                                    )
+                                },
+                                selected = item.route == navController.currentBackStackEntry?.destination?.route,
+                                onClick = {
+                                    scope.launch {
+                                        drawerState.close()
+                                        item.route?.let { route ->
+                                            navController.navigate(route) {
+                                                popUpTo(Screen.Home.route) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    selectedContainerColor = appRed.copy(alpha = 0.1f),
+                                    unselectedContainerColor = Color.Transparent
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Çıkış Yap Butonu
+                    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                    NavigationDrawerItem(
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.ExitToApp,
+                                contentDescription = null,
+                                tint = Color.Red.copy(alpha = 0.7f)
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = "Çıkış Yap",
+                                color = Color.Red.copy(alpha = 0.7f)
+                            )
+                        },
+                        selected = false,
+                        onClick = {
+                            scope.launch {
+                                drawerState.close()
+                                authViewModel.logout()
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        colors = NavigationDrawerItemDefaults.colors(
+                            selectedContainerColor = Color.Red.copy(alpha = 0.1f),
+                            unselectedContainerColor = Color.Transparent
+                        )
+                    )
+
+                    // Bottom padding for better scrolling experience
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }

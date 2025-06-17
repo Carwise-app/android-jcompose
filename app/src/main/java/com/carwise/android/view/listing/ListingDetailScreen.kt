@@ -109,6 +109,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.text.Html
 import android.widget.TextView
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
@@ -118,6 +120,8 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
+import com.carwise.android.data.model.Prediction
+import com.carwise.android.data.model.PredictionResponse
 import com.carwise.android.data.model.PricePredictionResponse
 import com.carwise.android.data.model.ResultState
 import com.carwise.android.viewmodel.listing.ListingDetailState
@@ -229,7 +233,7 @@ fun ListingDetailScreen(
                         }
 
                         // More Options Menu
-                        if (state.currentUser != null && 
+                        if (state.currentUser != null &&
                             (state.currentUser!!.user_id == state.listing!!.createdBy.id || state.currentUser!!.role == 2)) {
                             var expanded by remember { mutableStateOf(false) }
 
@@ -363,7 +367,8 @@ fun ListingDetailScreen(
                     ListingDetailContent(
                         listing = state.listing!!,
                         navController = navController,
-                        currentUser = state.currentUser
+                        currentUser = state.currentUser,
+                        predictions = state.imagePredictions
                     )
                 }
             }
@@ -425,7 +430,7 @@ fun ListingDetailScreen(
 
         if (showPredictionDialog) {
             AIPredictionDialog(
-                onDismiss = { 
+                onDismiss = {
                     showPredictionDialog = false
                     viewModel.resetPrediction()
                 },
@@ -437,6 +442,7 @@ fun ListingDetailScreen(
 
 @Composable
 private fun ListingDetailContent(
+    predictions: Map<String, PredictionResponse>,
     listing: GetListingResponse,
     navController: NavController,
     currentUser: UserPayload?
@@ -479,6 +485,7 @@ private fun ListingDetailContent(
         // Image Gallery
         item {
             ListingImageGallery(
+                predictions = predictions,
                 images = listing.images,
                 title = listing.title,
                 isSold = listing.status == 2,
@@ -544,7 +551,7 @@ private fun ListingDetailContent(
                         }
 
                         Spacer(modifier = Modifier.weight(1f))
-                            
+
                         if (currentUser != null && currentUser.user_id != listing.createdBy.id) {
                             IconButton(
                                 onClick = {
@@ -568,7 +575,7 @@ private fun ListingDetailContent(
                             Spacer(Modifier.width(12.dp))
 
                             IconButton(
-                                onClick = { 
+                                onClick = {
                                     navController.navigate("messages/${listing.id}/${listing.createdBy.id}")
                                 },
                                 modifier = Modifier
@@ -664,7 +671,8 @@ private fun DescriptionContent(description: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(4.dp)
+            .padding(4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         HtmlDisplayText(
             html = description,
@@ -763,7 +771,7 @@ private fun AsyncImageWithState(
 ) {
     val context = LocalContext.current
     val imageSize = if (isThumbnail) 96 else 1080
-    
+
     val painter = rememberAsyncImagePainter(
         model = ImageRequest.Builder(context)
             .data(imageUrl)
@@ -779,7 +787,7 @@ private fun AsyncImageWithState(
     )
 
     val imageState = remember { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
-    
+
     LaunchedEffect(painter) {
         withContext(Dispatchers.IO) {
             painter.state.collect { state ->
@@ -813,9 +821,9 @@ private fun ThumbnailImage(
         modifier = modifier
             .clip(RoundedCornerShape(2.dp))
             .background(
-                if (isSelected) 
-                    appRed.copy(alpha = 0.2f) 
-                else 
+                if (isSelected)
+                    appRed.copy(alpha = 0.2f)
+                else
                     Color.Transparent
             )
             .border(
@@ -837,13 +845,15 @@ private fun ThumbnailImage(
 
 @Composable
 private fun ListingImageGallery(
+    predictions: Map<String, PredictionResponse>,
     images: List<Image>,
     title: String,
     isSold: Boolean,
     onImageClick: (Int) -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
-    
+    var showPredictionDialog by remember { mutableStateOf<PredictionResponse?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -880,14 +890,12 @@ private fun ListingImageGallery(
                             .clickable { onImageClick(page) }
                     ) {
                         val imageUrl = "https://carwisegw.yusuftalhaklc.com${images[page].path.removePrefix(".")}"
-                        
                         AsyncImageWithState(
                             imageUrl = imageUrl,
                             contentDescription = title,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
                         )
-
                         if (isSold) {
                             Box(
                                 modifier = Modifier
@@ -908,9 +916,23 @@ private fun ListingImageGallery(
                                 )
                             }
                         }
+                        // Prediction icon (bottom start)
+                        val imagePrediction = predictions[images[page].id]
+                        IconButton(
+                            onClick = { imagePrediction?.let { showPredictionDialog = it } },
+                            modifier = Modifier.align(Alignment.BottomStart)
+                        ) {
+                            imagePrediction?.let {
+                                Icon(
+                                    imageVector = if (it.prediction.prediction) Icons.Default.VerifiedUser else Icons.Default.GppMaybe,
+                                    contentDescription = "Verified",
+                                    tint = if (it.prediction.prediction) Color(0xFF4CAF50) else Color(0xFFFFA000),
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
                     }
                 }
-
                 // Image Counter
                 if (images.size > 1) {
                     Surface(
@@ -929,45 +951,141 @@ private fun ListingImageGallery(
                     }
                 }
             }
-
-            // Thumbnail Preview - 2 rows with fixed size
+            // Thumbnail Preview - single horizontal scrollable row
             if (images.size > 1) {
-                val itemsPerRow = 5
-                val rows = (images.size + itemsPerRow - 1) / itemsPerRow
                 val thumbnailSize = 64.dp
-                
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    repeat(rows) { rowIndex ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Start,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val startIndex = rowIndex * itemsPerRow
-                            val endIndex = minOf(startIndex + itemsPerRow, images.size)
-                            
-                            for (index in startIndex until endIndex) {
-                                val thumbnailUrl = "https://carwisegw.yusuftalhaklc.com${images[index].path.removePrefix(".")}"
-                                ThumbnailImage(
-                                    imageUrl = thumbnailUrl,
-                                    modifier = Modifier
-                                        .size(thumbnailSize)
-                                        .padding(end = 4.dp),
-                                    isSelected = pagerState.currentPage == index,
-                                    onClick = {
-                                        coroutineScope.launch {
-                                            pagerState.animateScrollToPage(index)
-                                        }
-                                    }
-                                )
+                    images.forEachIndexed { index, image ->
+                        val thumbnailUrl = "https://carwisegw.yusuftalhaklc.com${image.path.removePrefix(".")}"
+                        ThumbnailImage(
+                            imageUrl = thumbnailUrl,
+                            modifier = Modifier.size(thumbnailSize),
+                            isSelected = pagerState.currentPage == index,
+                            onClick = {
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
+                                }
                             }
-                        }
+                        )
                     }
+                }
+            }
+        }
+    }
+    // Prediction dialog
+    showPredictionDialog?.let { prediction ->
+        PredictionDetailDialog(
+            prediction = prediction.prediction,
+            onDismiss = { showPredictionDialog = null }
+        )
+    }
+}
+
+@Composable
+fun PredictionDetailDialog(
+    prediction: Prediction,
+    onDismiss: () -> Unit
+) {
+    val isCar = prediction.prediction
+    val color = if (isCar) Color(0xFF43A047) else Color(0xFFFFA726)
+    val icon = if (isCar) Icons.Default.VerifiedUser else Icons.Default.GppMaybe
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(56.dp)
+                )
+                Text(
+                    text = if (isCar) "Araç Tespit Edildi" else "Araç Tespit Edilemedi",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = color,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                Text(
+                    text = "carwise-prediction-service-v3",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                )
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        text = "Güven Oranı",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                    Text(
+                        text = "${(prediction.confidence * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Tahmin Tarihi",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                    Text(
+                        text = java.text.SimpleDateFormat("dd MMMM yyyy HH:mm", java.util.Locale("tr")).format(java.util.Date(prediction.createdAt * 1000)),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Image ID",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                    Text(
+                        text = prediction.image.id ?: "-",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Bu sonuç AI tarafından tahmin edilmiştir. Sadece referans amaçlıdır.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = appRed),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Kapat", color = Color.White)
                 }
             }
         }

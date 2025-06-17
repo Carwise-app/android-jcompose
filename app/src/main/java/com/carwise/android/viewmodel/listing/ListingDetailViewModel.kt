@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.carwise.android.data.model.PredictionResponse
+import kotlinx.coroutines.flow.update
 
 data class ListingDetailState(
     val listing: GetListingResponse? = null,
@@ -26,7 +28,8 @@ data class ListingDetailState(
     // Prediction state
     val isPredicting: Boolean = false,
     val prediction: PricePredictionResponse? = null,
-    val predictionError: String? = null
+    val predictionError: String? = null,
+    val imagePredictions: Map<String, PredictionResponse> = emptyMap()
 )
 
 @HiltViewModel
@@ -35,6 +38,7 @@ class ListingDetailViewModel @Inject constructor(
 ) : ViewModel() {
     private val _state = MutableStateFlow(ListingDetailState())
     val state: StateFlow<ListingDetailState> = _state
+
 
     init {
         getCurrentUser()
@@ -51,6 +55,7 @@ class ListingDetailViewModel @Inject constructor(
                             isLoading = false,
                             listing = result.data
                         )
+                        predictAllImages(result.data.images)
                     }
                     is ResultState.Error -> {
                         _state.value = _state.value.copy(
@@ -264,5 +269,32 @@ class ListingDetailViewModel @Inject constructor(
             prediction = null,
             predictionError = null
         )
+    }
+
+    fun predictAllImages(images: List<com.carwise.android.data.model.Image>) {
+        viewModelScope.launch {
+            images.forEach { image ->
+                val imageId = image.id ?: return@forEach
+                val result = repository.uploadPredict(imageId)
+                when(result) {
+                    is ResultState.Success -> {
+                        _state.value = _state.value.copy(
+                            imagePredictions = _state.value.imagePredictions + (imageId to result.data)
+                        )
+                    }
+
+                    is ResultState.Error -> {
+                        // Handle error case - you might want to log or show error
+                        // For example:
+                        // Log.e("PredictImages", "Failed to predict image $imageId: ${result.message}")
+                    }
+
+                    ResultState.Loading -> {
+                        // This case might not be needed here since you're handling async calls
+                        // The loading state would typically be managed at a higher level
+                    }
+                }
+            }
+        }
     }
 } 

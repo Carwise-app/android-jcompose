@@ -21,7 +21,9 @@ data class ProfileState(
     val isUpdating: Boolean = false,
     val error: String? = null,
     val updateError: String? = null,
-    val isUpdateSuccess: Boolean = false
+    val isUpdateSuccess: Boolean = false,
+    val isDeleting: Boolean = false,
+    val isDeleteSuccess: Boolean = false
 )
 
 @HiltViewModel
@@ -203,5 +205,33 @@ class ProfileViewModel @Inject constructor(
                 isUpdating = false
             )
         }
+    }
+
+    fun deleteAccount() {
+        viewModelScope.launch {
+            _profileState.update { it.copy(isDeleting = true, error = null) }
+            try {
+                when (val result = repository.deleteUser(
+                    id = _profileState.value.profile?.id ?: ""
+                )) {
+                    is ResultState.Success -> {
+                        _profileState.update { it.copy(isDeleteSuccess = true) }
+                    }
+                    is ResultState.Error -> {
+                        _profileState.update { it.copy(error = result.error.error) }
+                    }
+
+                    ResultState.Loading -> {}
+                }
+            } catch (e: Exception) {
+                _profileState.update { it.copy(error = e.message ?: "Bir hata oluştu") }
+            } finally {
+                _profileState.update { it.copy(isDeleting = false) }
+            }
+        }
+    }
+
+    fun clearDeleteState() {
+        _profileState.update { it.copy(isDeleteSuccess = false) }
     }
 } 

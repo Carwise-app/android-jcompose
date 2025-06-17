@@ -22,6 +22,11 @@ import okhttp3.MultipartBody
 import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
+import android.util.Log
+import java.text.Collator
+import java.util.Locale
+
+private const val TAG = "CreateListingViewModel"
 
 data class UploadedImage(
     val uri: Uri,
@@ -34,7 +39,10 @@ data class ImageUploadState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val uploadedUrl: String? = null,
-    val imageId: String? = null
+    val imageId: String? = null,
+    val prediction: Prediction? = null,
+    val isPredicting: Boolean = false,
+    val predictionError: String? = null
 )
 
 @HiltViewModel
@@ -66,6 +74,18 @@ class CreateListingViewModel @Inject constructor(
 
     init {
         loadInitialData()
+        updateDamageInfo(
+            frontBumper = "Orijinal",
+            frontHood = "Orijinal",
+            roof = "Orijinal",
+            frontRightDoor = "Orijinal",
+            rearRightDoor = "Orijinal",
+            frontLeftMudguard = "Orijinal",
+            frontLeftDoor = "Orijinal",
+            rearLeftDoor = "Orijinal",
+            rearLeftMudguard = "Orijinal",
+            rearBumper = "Orijinal"
+        )
     }
 
     private fun loadInitialData() {
@@ -93,7 +113,9 @@ class CreateListingViewModel @Inject constructor(
                         _state.update { it.copy(isLoading = true) }
                     }
                 }
-                _cities.value = locationRepository.getCities().sorted()
+                _cities.value = locationRepository.getCities().sortedWith(
+                    Collator.getInstance(Locale("tr", "TR"))
+                )
             } catch (e: Exception) {
                 _state.update { 
                     it.copy(
@@ -322,7 +344,9 @@ class CreateListingViewModel @Inject constructor(
                         selectedNeighborhood = null
                     )
                 }
-                _districts.value = locationRepository.getDistricts(city)
+                _districts.value = locationRepository.getDistricts(city).sortedWith(
+                    compareBy(Collator.getInstance(Locale("tr", "TR"))) { it.name }
+                )
                 _neighborhoods.value = emptyList()
             } catch (e: Exception) {
                 _state.update { 
@@ -341,7 +365,9 @@ class CreateListingViewModel @Inject constructor(
                         selectedNeighborhood = null
                     )
                 }
-                _neighborhoods.value = locationRepository.getNeighborhoods(district.id)
+                _neighborhoods.value = locationRepository.getNeighborhoods(district.id).sortedWith(
+                    Collator.getInstance(Locale("tr", "TR"))
+                )
             } catch (e: Exception) {
                 _state.update { 
                     it.copy(error = "Mahalle bilgileri yüklenirken bir hata oluştu")
@@ -543,6 +569,7 @@ class CreateListingViewModel @Inject constructor(
     fun addImages(uris: List<Uri>) {
         viewModelScope.launch {
             try {
+                Log.d(TAG, "Starting to add ${uris.size} images")
                 // Maksimum fotoğraf sayısı kontrolü
                 val currentUploadedCount = _imageUploadStates.value.count { it.uploadedUrl != null }
                 if (currentUploadedCount + uris.size > 20) {
@@ -552,6 +579,7 @@ class CreateListingViewModel @Inject constructor(
 
                 // Yeni URI'leri ImageUploadState listesine ekle
                 val newStates = uris.map { uri ->
+                    Log.d(TAG, "Processing image: $uri")
                     // Dosya boyutu kontrolü (5MB)
                     val fileSize = context.contentResolver.openInputStream(uri)?.use { input ->
                         input.available().toLong()
@@ -571,6 +599,7 @@ class CreateListingViewModel @Inject constructor(
                 // Her bir fotoğrafı yükle
                 newStates.forEach { state ->
                     if (state.error == null) {
+                        Log.d(TAG, "Uploading image: ${state.uri}")
                         when (val result = uploadImage(state.uri)) {
                             is ResultState.Success -> {
                                 _imageUploadStates.update { states ->
@@ -579,9 +608,26 @@ class CreateListingViewModel @Inject constructor(
                                             currentState.copy(
                                                 isLoading = false,
                                                 uploadedUrl = result.data.image.path,
-                                                imageId = result.data.image.id
+                                                imageId = result.data.image.id,
+                                                isPredicting = true
                                             )
                                         } else currentState
+                                    }
+                                }
+                                
+                                // Resim yüklendikten sonra predict işlemini başlat
+                                result.data.image.id?.let { imageId ->
+                                    predictImage(imageId, state.uri)
+                                } ?: run {
+                                    _imageUploadStates.update { states ->
+                                        states.map { currentState ->
+                                            if (currentState.uri == state.uri) {
+                                                currentState.copy(
+                                                    predictionError = "Image ID is null",
+                                                    isPredicting = false
+                                                )
+                                            } else currentState
+                                        }
                                     }
                                 }
                             }
@@ -699,6 +745,54 @@ class CreateListingViewModel @Inject constructor(
                 selectedPrice = price,
                 selectedCurrency = "TL"
             )
+        }
+    }
+
+    private suspend fun predictImage(imageId: String, uri: Uri) {
+        try {
+            when (val result = repository.uploadPredict(imageId)) {
+                is ResultState.Success -> {
+                    _imageUploadStates.update { states ->
+                        states.map { currentState ->
+                            if (currentState.uri == uri) {
+                                currentState.copy(
+                                    prediction = result.data.prediction,
+                                    isPredicting = false,
+                                    predictionError = null
+                                )
+                            } else currentState
+                        }
+                    }
+                }
+                is ResultState.Error -> {
+                    _imageUploadStates.update { states ->
+                        states.map { currentState ->
+                            if (currentState.uri == uri) {
+                                currentState.copy(
+                                    predictionError = result.error.error ?: "Prediction failed",
+                                    isPredicting = false,
+                                    prediction = null
+                                )
+                            } else currentState
+                        }
+                    }
+                }
+                is ResultState.Loading -> {
+                    // Loading state is already set
+                }
+            }
+        } catch (e: Exception) {
+            _imageUploadStates.update { states ->
+                states.map { currentState ->
+                    if (currentState.uri == uri) {
+                        currentState.copy(
+                            predictionError = "Prediction error: ${e.message}",
+                            isPredicting = false,
+                            prediction = null
+                        )
+                    } else currentState
+                }
+            }
         }
     }
 }
