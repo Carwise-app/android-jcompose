@@ -338,6 +338,9 @@ private fun CompactListingCard(
                 ) {
                     // Detail items in a row
                     val detailItems = listOf(
+                        Triple(Icons.Default.DriveEta, "Marka", listing.brand.name),
+                        Triple(Icons.Default.DriveEta, "Seri", listing.series.name),
+                        Triple(Icons.Default.DriveEta, "Model", listing.model.name),
                         Triple(Icons.Default.DateRange, "Yıl", listing.year.toString()),
                         Triple(Icons.Default.Palette, "Renk", listing.color),
                         Triple(Icons.Default.Route, "KM", "${NumberFormat.getNumberInstance(Locale("tr", "TR")).format(listing.kilometers)}"),

@@ -56,6 +56,9 @@ fun DashboardScreen(
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = dashboardState.isLoading)
 
     var showAddBrandDialog by remember { mutableStateOf(false) }
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    
+    val tabs = listOf("Kullanıcılar", "Markalar")
 
     Scaffold(
         topBar = {
@@ -153,127 +156,100 @@ fun DashboardScreen(
                     StatsGrid(stats = dashboardState.stats)
                 }
 
-                // Brands Section
+                // Tab Row
                 item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.toggleAllBrands() }
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            Text(
-                                text = "Markalar",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
+                            tabs.forEachIndexed { index, title ->
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { selectedTabIndex = index }
+                                        .padding(vertical = 16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selectedTabIndex == index) appRed else Color.Gray
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Custom indicator
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (selectedTabIndex == 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(3.dp)
+                                        .background(appRed)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(3.dp)
+                                        .background(Color.Transparent)
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(3.dp)
+                                        .background(Color.Transparent)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(3.dp)
+                                        .background(appRed)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Tab Content
+                when (selectedTabIndex) {
+                    0 -> {
+                        // Users Tab Content
+                        item {
+                            UsersTabContent(
+                                users = dashboardState.users,
+                                isPaginating = dashboardState.isPaginating,
+                                endReached = dashboardState.endReached,
+                                onDeleteUser = { userId -> viewModel.deleteUser(userId) },
+                                onLoadMore = { viewModel.loadUsers() },
+                                onUpdateRole = { userId, role -> viewModel.updateUserRole(userId, role) }
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                imageVector = if (dashboardState.expandedBrands.size == dashboardState.brands.size) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = if (dashboardState.expandedBrands.size == dashboardState.brands.size) "Daralt" else "Genişlet",
-                                tint = Color.Gray,
-                                modifier = Modifier.size(20.dp)
+                        }
+                    }
+                    1 -> {
+                        // Brands Tab Content
+                        item {
+                            BrandsTabContent(
+                                brands = dashboardState.brands,
+                                expandedBrands = dashboardState.expandedBrands,
+                                isBrandLoading = dashboardState.isBrandLoading,
+                                isBrandOperationLoading = dashboardState.isBrandOperationLoading,
+                                onToggleAllBrands = { viewModel.toggleAllBrands() },
+                                onToggleBrand = { brandId -> viewModel.toggleBrand(brandId) },
+                                onDeleteBrand = { brandId -> viewModel.deleteBrand(brandId) },
+                                onCreateSeries = { brandId, seriesName -> viewModel.createSeries(brandId, seriesName) },
+                                onDeleteSeries = { brandId, seriesId -> viewModel.deleteSeries(brandId, seriesId) },
+                                onCreateModel = { brandId, seriesId, modelName -> viewModel.createModel(brandId, seriesId, modelName) },
+                                onDeleteModel = { brandId, seriesId, modelId -> viewModel.deleteModel(brandId, seriesId, modelId) },
+                                onShowAddBrandDialog = { showAddBrandDialog = true }
                             )
-                        }
-                        IconButton(
-                            onClick = { showAddBrandDialog = true },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Marka Ekle",
-                                tint = appRed,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Brands Loading
-                if (dashboardState.isBrandLoading) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = appRed)
-                        }
-                    }
-                }
-
-                // Brands List
-                items(dashboardState.brands) { brand ->
-                    BrandCard(
-                        brand = brand,
-                        isExpanded = dashboardState.expandedBrands.contains(brand.id),
-                        onToggleExpand = { viewModel.toggleBrand(brand.id) },
-                        onDeleteBrand = { viewModel.deleteBrand(brand.id) },
-                        onCreateSeries = { seriesName -> viewModel.createSeries(brand.id, seriesName) },
-                        onDeleteSeries = { seriesId -> viewModel.deleteSeries(brand.id, seriesId) },
-                        onCreateModel = { seriesId, modelName -> viewModel.createModel(brand.id, seriesId, modelName) },
-                        onDeleteModel = { seriesId, modelId -> viewModel.deleteModel(brand.id, seriesId, modelId) }
-                    )
-                }
-
-                // Brand Operation Loading
-                if (dashboardState.isBrandOperationLoading) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = appRed)
-                        }
-                    }
-                }
-
-                // Users List
-                item {
-                    Text(
-                        "Kullanıcılar",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
-
-                items(dashboardState.users) { user ->
-                    UserCard(
-                        user = user,
-                        onDelete = { viewModel.deleteUser(user.id) }
-                    )
-                }
-
-                // Loading indicator for pagination
-                if (dashboardState.isPaginating) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = appRed)
-                        }
-                    }
-                }
-
-                // Load more trigger
-                if (!dashboardState.endReached && !dashboardState.isPaginating) {
-                    item {
-                        LaunchedEffect(Unit) {
-                            viewModel.loadUsers()
                         }
                     }
                 }
@@ -424,9 +400,11 @@ private fun StatCard(
 @Composable
 private fun UserCard(
     user: UserResponse,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onUpdateRole: (String, Int) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showRoleDialog by remember { mutableStateOf(false) }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
 
     Card(
@@ -491,9 +469,11 @@ private fun UserCard(
                 )
             }
 
-            // Role Badge
+            // Role Badge with Click Handler
             Surface(
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .clickable { showRoleDialog = true },
                 shape = RoundedCornerShape(12.dp),
                 color = when (user.role) {
                     2L -> Color(0xFF6366F1) // Admin - Indigo
@@ -531,6 +511,7 @@ private fun UserCard(
         }
     }
 
+    // Delete User Dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -556,6 +537,52 @@ private fun UserCard(
             dismissButton = {
                 TextButton(
                     onClick = { showDeleteDialog = false }
+                ) {
+                    Text("İptal")
+                }
+            }
+        )
+    }
+
+    // Role Change Dialog
+    if (showRoleDialog) {
+        AlertDialog(
+            onDismissRequest = { showRoleDialog = false },
+            title = {
+                Text("Kullanıcı Rolünü Değiştir")
+            },
+            text = {
+                Text("${user.firstName} ${user.lastName} kullanıcısının rolünü değiştirmek istediğinizden emin misiniz?")
+            },
+            confirmButton = {
+                Column {
+                    TextButton(
+                        onClick = {
+                            onUpdateRole(user.id, 1) // Normal User
+                            showRoleDialog = false
+                        }
+                    ) {
+                        Text(
+                            "Normal Kullanıcı Yap",
+                            color = Color(0xFF10B981)
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            onUpdateRole(user.id, 2) // Admin
+                            showRoleDialog = false
+                        }
+                    ) {
+                        Text(
+                            "Admin Yap",
+                            color = Color(0xFF6366F1)
+                        )
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showRoleDialog = false }
                 ) {
                     Text("İptal")
                 }
@@ -962,4 +989,160 @@ private data class StatItem(
     val value: String,
     val icon: ImageVector,
     val color: Color
-) 
+)
+
+@Composable
+private fun UsersTabContent(
+    users: List<UserResponse>,
+    isPaginating: Boolean,
+    endReached: Boolean,
+    onDeleteUser: (String) -> Unit,
+    onLoadMore: () -> Unit,
+    onUpdateRole: (String, Int) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            "Kullanıcılar",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            users.forEach { user ->
+                UserCard(
+                    user = user,
+                    onDelete = { onDeleteUser(user.id) },
+                    onUpdateRole = { userId, role -> onUpdateRole(userId, role) }
+                )
+            }
+
+            // Loading indicator for pagination
+            if (isPaginating) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = appRed)
+                }
+            }
+
+            // Load more trigger
+            if (!endReached && !isPaginating) {
+                LaunchedEffect(Unit) {
+                    onLoadMore()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BrandsTabContent(
+    brands: List<Brand>,
+    expandedBrands: Set<String>,
+    isBrandLoading: Boolean,
+    isBrandOperationLoading: Boolean,
+    onToggleAllBrands: () -> Unit,
+    onToggleBrand: (String) -> Unit,
+    onDeleteBrand: (String) -> Unit,
+    onCreateSeries: (String, String) -> Unit,
+    onDeleteSeries: (String, String) -> Unit,
+    onCreateModel: (String, String, String) -> Unit,
+    onDeleteModel: (String, String, String) -> Unit,
+    onShowAddBrandDialog: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onToggleAllBrands() }
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Markalar",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = if (expandedBrands.size == brands.size) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expandedBrands.size == brands.size) "Daralt" else "Genişlet",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            IconButton(
+                onClick = onShowAddBrandDialog,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Marka Ekle",
+                    tint = appRed,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Brands Loading
+            if (isBrandLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = appRed)
+                }
+            }
+
+            // Brands List
+            brands.forEach { brand ->
+                BrandCard(
+                    brand = brand,
+                    isExpanded = expandedBrands.contains(brand.id),
+                    onToggleExpand = { onToggleBrand(brand.id) },
+                    onDeleteBrand = { onDeleteBrand(brand.id) },
+                    onCreateSeries = { seriesName -> onCreateSeries(brand.id, seriesName) },
+                    onDeleteSeries = { seriesId -> onDeleteSeries(brand.id, seriesId) },
+                    onCreateModel = { seriesId, modelName -> onCreateModel(brand.id, seriesId, modelName) },
+                    onDeleteModel = { seriesId, modelId -> onDeleteModel(brand.id, seriesId, modelId) }
+                )
+            }
+
+            // Brand Operation Loading
+            if (isBrandOperationLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = appRed)
+                }
+            }
+        }
+    }
+} 

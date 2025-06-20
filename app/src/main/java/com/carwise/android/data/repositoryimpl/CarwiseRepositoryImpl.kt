@@ -32,6 +32,7 @@ import com.carwise.android.data.model.ResultState
 import com.carwise.android.data.model.SendMessageRequest
 import com.carwise.android.data.model.SetGetNotificationRequest
 import com.carwise.android.data.model.UpdateListingStatusRequest
+import com.carwise.android.data.model.UpdateRoleRequest
 import com.carwise.android.data.model.UserInfo
 import com.carwise.android.data.model.UserPayload
 import com.carwise.android.data.remote.CarwiseService
@@ -1471,6 +1472,38 @@ class CarwiseRepositoryImpl @Inject constructor(
             ResultState.Error(
                 ErrorResponse(
                     error = "Kullanıcı Silinemedi. Lütfen daha sonra tekrar deneyin."
+                )
+            )
+        }
+    }
+
+    override suspend fun updateRole(userId: String, role: Int): ResultState<Unit> {
+        return try {
+            val response = carwiseService.updateRole(
+                request = UpdateRoleRequest(
+                    userId = userId,
+                    role = role
+                )
+            )
+            if (response.isSuccessful) {
+                response.body()?.let {
+                    ResultState.Success(it)
+                } ?:  ResultState.Error(
+                    ErrorResponse(
+                        error = "Kullanıcı Rolü güncellenemedi. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            } else {
+                ResultState.Error(
+                    ErrorResponse(
+                        error = "Kullanıcı Rolü güncellenemedi. Lütfen daha sonra tekrar deneyin."
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            ResultState.Error(
+                ErrorResponse(
+                    error = "Kullanıcı Rolü güncellenemedi. Lütfen daha sonra tekrar deneyin."
                 )
             )
         }

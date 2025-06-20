@@ -383,6 +383,39 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun updateUserRole(userId: String, newRole: Int) {
+        viewModelScope.launch {
+            try {
+                when (val result = repository.updateRole(userId, newRole)) {
+                    is ResultState.Success -> {
+                        // Update the user's role in the local state
+                        _dashboardState.update { currentState ->
+                            currentState.copy(
+                                users = currentState.users.map { user ->
+                                    if (user.id == userId) {
+                                        user.copy(role = newRole.toLong())
+                                    } else {
+                                        user
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    is ResultState.Error -> {
+                        _dashboardState.update { 
+                            it.copy(error = result.error.error)
+                        }
+                    }
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                _dashboardState.update { 
+                    it.copy(error = "Kullanıcı rolü güncellenirken bir hata oluştu: ${e.message}")
+                }
+            }
+        }
+    }
+
     fun refresh() {
         _dashboardState.update { 
             it.copy(

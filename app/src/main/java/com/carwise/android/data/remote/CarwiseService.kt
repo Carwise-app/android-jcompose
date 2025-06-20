@@ -27,6 +27,7 @@ import com.carwise.android.data.model.SendMessageRequest
 import com.carwise.android.data.model.SetGetNotificationRequest
 import com.carwise.android.data.model.UpdateListingStatusRequest
 import com.carwise.android.data.model.UpdateProfileRequest
+import com.carwise.android.data.model.UpdateRoleRequest
 import com.carwise.android.data.model.UserInfo
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -84,7 +85,7 @@ interface CarwiseService {
         @Part avatar: MultipartBody.Part?
     ): Response<Unit>
 
-    @PATCH("profile/notify")
+    @PUT("profile/notify")
     suspend fun setNotify(
         @Body request: SetGetNotificationRequest
     ): Response<Unit>
@@ -304,6 +305,11 @@ interface CarwiseService {
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 10
     ): Response<GetUsersResponse>
+
+    @PUT("admin/update-user-role")
+    suspend fun updateRole(
+        @Body request: UpdateRoleRequest
+    ): Response<Unit>
 
     @DELETE("profile/{id}")
     suspend fun deleteUser(

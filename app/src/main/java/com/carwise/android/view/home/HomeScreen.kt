@@ -83,6 +83,8 @@ import androidx.compose.material.icons.rounded.TrendingDown
 import com.carwise.android.data.model.Notification
 import kotlin.math.abs
 import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.DeleteSweep
 
 data class DrawerItem(
     val title: String,
@@ -462,10 +464,14 @@ fun HomeScreen(
     val homeState by homeViewModel.homeState.collectAsState()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var showNotifications by remember { mutableStateOf(false) }
+    var showDeleteAllConfirm by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     val listState = rememberLazyListState()
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = homeState.isListingsLoading)
+    
+    // Notification list state for infinite scrolling
+    val notificationListState = rememberLazyListState()
 
     // Optimize scroll performance with derived state
     val appBarVisible by remember {
@@ -486,9 +492,25 @@ fun HomeScreen(
         }
     }
 
+    // Notification infinite scrolling detection
+    val shouldLoadMoreNotifications by remember {
+        derivedStateOf {
+            val lastVisibleItem = notificationListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = notificationListState.layoutInfo.totalItemsCount
+            !homeState.isNotificationsLoading && !homeState.isNotificationPaginating && !homeState.notificationEndReached &&
+            lastVisibleItem >= totalItems - 3
+        }
+    }
+
     LaunchedEffect(shouldLoadMore) {
         if (shouldLoadMore) {
             homeViewModel.loadMoreListings()
+        }
+    }
+
+    LaunchedEffect(shouldLoadMoreNotifications) {
+        if (shouldLoadMoreNotifications) {
+            homeViewModel.loadMoreNotifications()
         }
     }
 
@@ -950,17 +972,52 @@ fun HomeScreen(
                                     color = Color.Black
                                 )
 
-                                // Refresh button
-                                IconButton(
-                                    onClick = { homeViewModel.refreshNotifications() },
-                                    modifier = Modifier.size(24.dp)
+                                // Action buttons
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = "Yenile",
-                                        tint = appRed,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    // Mark all read button
+                                    if (homeState.unreadCount > 0) {
+                                        IconButton(
+                                            onClick = { homeViewModel.readAllNotifications() },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DoneAll,
+                                                contentDescription = "Tümünü Okundu İşaretle",
+                                                tint = Color(0xFF10B981),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // Delete all button
+                                    if (homeState.notifications.isNotEmpty()) {
+                                        IconButton(
+                                            onClick = { showDeleteAllConfirm = true },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DeleteSweep,
+                                                contentDescription = "Tümünü Sil",
+                                                tint = Color(0xFFEF4444),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // Refresh button
+                                    IconButton(
+                                        onClick = { homeViewModel.refreshNotifications() },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Yenile",
+                                            tint = appRed,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
 
@@ -1037,6 +1094,7 @@ fun HomeScreen(
                             // Notifications list
                             else if (homeState.notifications.isNotEmpty()) {
                                 LazyColumn(
+                                    state = notificationListState,
                                     modifier = Modifier.heightIn(max = 600.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
@@ -1059,17 +1117,19 @@ fun HomeScreen(
                                         )
                                     }
 
-                                    // Load more button
+                                    // Load more indicator
                                     if (!homeState.notificationEndReached) {
                                         item {
                                             if (homeState.isNotificationPaginating) {
                                                 Box(
-                                                    modifier = Modifier.fillMaxWidth(),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(16.dp),
                                                     contentAlignment = Alignment.Center
                                                 ) {
                                                     CircularProgressIndicator(
                                                         color = appRed,
-                                                        modifier = Modifier.size(20.dp)
+                                                        modifier = Modifier.size(24.dp)
                                                     )
                                                 }
                                             } else {
@@ -1118,6 +1178,46 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    // Delete All Notifications Confirmation Dialog
+    if (showDeleteAllConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAllConfirm = false },
+            title = {
+                Text(
+                    text = "Tüm Bildirimleri Sil",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            text = {
+                Text(
+                    text = "Tüm bildirimlerinizi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        homeViewModel.deleteAllNotifications()
+                        showDeleteAllConfirm = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFFEF4444)
+                    )
+                ) {
+                    Text("Sil")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteAllConfirm = false }
+                ) {
+                    Text("İptal")
+                }
+            }
+        )
     }
 }
 

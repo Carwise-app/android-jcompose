@@ -203,7 +203,7 @@ class HomeViewModel @Inject constructor(
             )
 
             try {
-                val result = repository.getNotifications(page = 1, limit = 10)
+                val result = repository.getNotifications(page = 1, limit = 20)
                 when (result) {
                     is ResultState.Success -> {
                         cachedNotifications = result.data.notifications
@@ -248,7 +248,7 @@ class HomeViewModel @Inject constructor(
             val nextPage = state.notificationCurrentPage + 1
 
             try {
-                val result = repository.getNotifications(page = nextPage, limit = 10)
+                val result = repository.getNotifications(page = nextPage, limit = 20)
                 when (result) {
                     is ResultState.Success -> {
                         val newNotifications = (state.notifications + result.data.notifications)
@@ -374,6 +374,74 @@ class HomeViewModel @Inject constructor(
 
     fun clearNotificationError() {
         _homeState.value = _homeState.value.copy(notificationError = null)
+    }
+
+    fun readAllNotifications() {
+        viewModelScope.launch {
+            try {
+                val result = repository.readAllNotification()
+                when (result) {
+                    is ResultState.Success -> {
+                        // Update all notifications to read status
+                        val updatedNotifications = _homeState.value.notifications.map { notification ->
+                            notification.copy(read = true)
+                        }
+                        
+                        // Update cached notifications
+                        cachedNotifications = updatedNotifications
+                        
+                        // Reset unread count to 0
+                        _homeState.value = _homeState.value.copy(
+                            notifications = updatedNotifications,
+                            unreadCount = 0L
+                        )
+                    }
+                    is ResultState.Error -> {
+                        _homeState.value = _homeState.value.copy(
+                            notificationError = "Tüm bildirimler okundu olarak işaretlenirken hata oluştu: ${result.error.error}"
+                        )
+                    }
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                _homeState.value = _homeState.value.copy(
+                    notificationError = "Tüm bildirimler güncellenirken bir hata oluştu: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun deleteAllNotifications() {
+        viewModelScope.launch {
+            try {
+                val result = repository.deleteAllNotification()
+                when (result) {
+                    is ResultState.Success -> {
+                        // Clear all notifications
+                        cachedNotifications = emptyList()
+                        lastNotificationRefreshTime = 0 // Force refresh on next load
+                        
+                        _homeState.value = _homeState.value.copy(
+                            notifications = emptyList(),
+                            notificationTotal = 0L,
+                            unreadCount = 0L,
+                            notificationCurrentPage = 1,
+                            notificationEndReached = true
+                        )
+                    }
+                    is ResultState.Error -> {
+                        _homeState.value = _homeState.value.copy(
+                            notificationError = "Tüm bildirimler silinirken hata oluştu: ${result.error.error}"
+                        )
+                    }
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                _homeState.value = _homeState.value.copy(
+                    notificationError = "Tüm bildirimler silinirken bir hata oluştu: ${e.message}"
+                )
+            }
+        }
     }
 
 } 

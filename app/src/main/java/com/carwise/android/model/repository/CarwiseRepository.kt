@@ -165,5 +165,5 @@ interface CarwiseRepository {
     suspend fun getStats() :ResultState<GetStatsResponse>
     suspend fun getUsers(page: Int = 1, limit: Int = 10): ResultState<GetUsersResponse>
     suspend fun deleteUser(id: String): ResultState<Unit>
-
+    suspend fun updateRole(userId: String,role : Int): ResultState<Unit>
 }

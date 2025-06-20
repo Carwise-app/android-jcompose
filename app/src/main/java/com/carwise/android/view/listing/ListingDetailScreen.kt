@@ -108,6 +108,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.text.Html
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.TextView
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -703,15 +705,25 @@ fun HtmlDisplayText(
     color: Color = Color.Gray,
     lineHeight: TextUnit = style.lineHeight * 1.5f
 ) {
-    val annotatedString = htmlToAnnotatedString(html)
-
-    Text(
-        text = annotatedString,
+    AndroidView(
         modifier = modifier,
-        style = style.copy(
-            lineHeight = lineHeight,
-            color = color
-        )
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = false
+                settings.domStorageEnabled = false
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                webViewClient = WebViewClient()
+            }
+        },
+        update = { webView ->
+            webView.loadDataWithBaseURL(
+                null,
+                html,
+                "text/html",
+                "UTF-8",
+                null
+            )
+        }
     )
 }
 
