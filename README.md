@@ -1,6 +1,6 @@
 # CarWise Mobil Uygulama Ekran Görüntüleri
 
-Bu depo, CarWise mobil uygulamasının ekran görüntülerini içermektedir.
+<img src="img/banner.png" width="800"/>
 
 ## Giriş Ekranı
 <img src="img/giris_ekranı_1_3.png" width="200"/> <img src="img/giris_ekranı_2_3.png" width="200"/> <img src="img/giris_ekranı_3_3.png" width="200"/>
